@@ -1,0 +1,13 @@
+{
+  "timeline_name": "EP2_ROUGH_ASSEMBLY",
+  "clip_hint": "INTERVIEW_EP2",
+  "srt_offset": "auto",
+  "segments": [
+    {"name": "01 origini", "in": "01:00:37,958", "out": "01:01:13,250", "note": "attacco forte"},
+    {"name": "02 la svolta", "in": "01:02:04,120", "out": "01:02:48,900"},
+    {"name": "03 il metodo", "in": "01:05:11,000", "out": "01:06:02,480", "note": "spezzare con broll"},
+    {"name": "04 un errore", "in": "01:09:30,750", "out": "01:10:15,000"},
+    {"name": "05 la lezione", "in": "01:14:58,200", "out": "01:15:40,660"},
+    {"name": "06 chiusura", "in": "01:19:02,000", "out": "01:19:45,333", "note": "outro"}
+  ]
+}

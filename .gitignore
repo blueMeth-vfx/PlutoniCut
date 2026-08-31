@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+out_console.py
+cut_console.py
+*.egg-info/
+.venv/
