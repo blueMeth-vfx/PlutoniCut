@@ -9,6 +9,7 @@ un cut.json.
 Self-contained: nessuna dipendenza esterna, gira con il Python interno di Resolve.
 """
 
+import datetime
 import json
 import math
 import re
@@ -68,40 +69,102 @@ ITEMS = []         # oggetti riga del Tree, in ordine parallelo a ROWS
 
 COLS = ["In", "Out", "Nome", "Nota"]
 
+# --- Tema scuro (Qt stylesheet) ------------------------------------------
+ACCENT = "#e8b33d"      # ambra, come i marker
+STYLE = """
+* { font-family: 'Segoe UI','Helvetica Neue',sans-serif; font-size: 13px;
+    color: #e6e8ea; outline: none; }
+QWidget { background-color: #1b1e23; }
+QLabel#Header { font-size: 20px; font-weight: 800; color: %(a)s; }
+QLabel#Src { color: #b8c0cc; padding: 4px 2px; }
+QLineEdit, QComboBox { background: #262a31; border: 1px solid #3a3f47;
+    border-radius: 5px; padding: 5px 7px; selection-background-color: %(a)s; }
+QLineEdit:focus, QComboBox:focus { border: 1px solid %(a)s; }
+QComboBox::drop-down { border: 0; width: 18px; }
+QPushButton { background: #333842; border: 1px solid #444b55;
+    border-radius: 6px; padding: 6px 12px; }
+QPushButton:hover { background: #3d434e; }
+QPushButton:pressed { background: #2b303a; }
+QPushButton#Apply { background: %(a)s; color: #1b1e23; font-weight: 800;
+    border: 0; padding: 9px 12px; }
+QPushButton#Apply:hover { background: #f2c25a; }
+QPushButton#Close { color: #c9ccd1; }
+QCheckBox { spacing: 6px; }
+QCheckBox::indicator { width: 15px; height: 15px; border-radius: 4px;
+    border: 1px solid #4a515b; background: #262a31; }
+QCheckBox::indicator:checked { background: %(a)s; border: 1px solid %(a)s; }
+QTreeWidget, QTreeView { background: #15181c; border: 1px solid #333842;
+    border-radius: 6px; alternate-background-color: #191d22; }
+QHeaderView::section { background: #262a31; color: #aab2bd; border: 0;
+    border-bottom: 1px solid #333842; padding: 6px; font-weight: 700; }
+QTreeWidget::item { padding: 3px; }
+QTreeWidget::item:selected { background: %(a)s; color: #1b1e23; }
+QLabel#Status { color: #9aa2ad; background: #15181c; border: 1px solid #333842;
+    border-radius: 5px; padding: 6px 9px; }
+""" % {"a": ACCENT}
+
+
+def _sec(text):
+    return ui.Label({"Text": text, "Weight": 0, "StyleSheet": (
+        "color:#8b929c; font-size:11px; font-weight:700; letter-spacing:1px;"
+        " padding-top:8px;")})
+
+
 win = disp.AddWindow({
     "ID": "MakeACutWin",
-    "WindowTitle": "MakeACut - tagli sulla timeline aperta",
-    "Geometry": [120, 120, 820, 560],
+    "WindowTitle": "MakeACut",
+    "Geometry": [120, 100, 860, 600],
+    "StyleSheet": STYLE,
 }, [
-    ui.VGroup({"Spacing": 6, "Margin": 10}, [
-        ui.Label({"Text": "MakeACut", "Weight": 0,
-                  "Font": ui.Font({"PixelSize": 18, "Bold": True})}),
+    ui.VGroup({"Spacing": 7, "Margin": 14}, [
+        ui.HGroup({"Weight": 0, "Spacing": 10}, [
+            ui.Label({"ID": "Header", "Text": "✂  MakeACut", "Weight": 0}),
+            ui.Label({"Text": "assembla i tagli sulla timeline",
+                      "Weight": 1, "Alignment": {"AlignBottom": True}}),
+        ]),
         ui.Label({"ID": "Src", "Text": "Sorgente: (nessuna clip selezionata)",
                   "Weight": 0}),
-        ui.Tree({"ID": "Tree", "Weight": 1, "AlternatingRowColors": True}),
-        ui.HGroup({"Weight": 0, "Spacing": 5}, [
+
+        _sec("TAGLI  —  in / out = da tenere, il resto viene escluso"),
+        ui.Tree({"ID": "Tree", "Weight": 1, "AlternatingRowColors": True,
+                 "RootIsDecorated": False, "ItemsExpandable": False}),
+        ui.HGroup({"Weight": 0, "Spacing": 6}, [
             ui.LineEdit({"ID": "In", "PlaceholderText": "In  01:00:37,958"}),
             ui.LineEdit({"ID": "Out", "PlaceholderText": "Out 01:01:13,250"}),
             ui.LineEdit({"ID": "Name", "PlaceholderText": "Nome capitolo"}),
             ui.LineEdit({"ID": "Note", "PlaceholderText": "Nota (opzionale)"}),
-            ui.Button({"ID": "Add", "Text": "Aggiungi", "Weight": 0}),
-            ui.Button({"ID": "Del", "Text": "Rimuovi sel.", "Weight": 0}),
+            ui.Button({"ID": "Add", "Text": "+ Aggiungi", "Weight": 0}),
+            ui.Button({"ID": "Del", "Text": "Rimuovi", "Weight": 0}),
         ]),
-        ui.HGroup({"Weight": 0, "Spacing": 5}, [
+
+        _sec("AUTOCOMPILA DA FILE"),
+        ui.HGroup({"Weight": 0, "Spacing": 6}, [
             ui.LineEdit({"ID": "Path", "PlaceholderText": "percorso di cut.json"}),
-            ui.Button({"ID": "Browse", "Text": "Sfoglia...", "Weight": 0}),
+            ui.Button({"ID": "Browse", "Text": "Sfoglia…", "Weight": 0}),
             ui.Button({"ID": "Load", "Text": "Carica cut.json", "Weight": 0}),
         ]),
-        ui.HGroup({"Weight": 0, "Spacing": 5}, [
+
+        _sec("DESTINAZIONE"),
+        ui.HGroup({"Weight": 0, "Spacing": 10}, [
             ui.CheckBox({"ID": "NewTl", "Text": "Crea nuova timeline", "Weight": 0}),
-            ui.LineEdit({"ID": "TlName", "PlaceholderText": "nome nuova timeline"}),
-            ui.Label({"Text": "Offset:", "Weight": 0}),
-            ui.LineEdit({"ID": "Offset", "PlaceholderText": "auto", "Weight": 0}),
-            ui.Label({"Text": "Marker:", "Weight": 0}),
-            ui.ComboBox({"ID": "Color", "Weight": 0}),
+            ui.LineEdit({"ID": "TlName", "PlaceholderText": "nome nuova timeline",
+                         "Weight": 1}),
+            ui.CheckBox({"ID": "Backup", "Text": "Backup prima dei tagli",
+                         "Checked": True, "Weight": 0}),
         ]),
-        ui.HGroup({"Weight": 0, "Spacing": 5}, [
-            ui.Button({"ID": "Apply", "Text": "Applica alla timeline", "Weight": 1}),
+        ui.HGroup({"Weight": 0, "Spacing": 10}, [
+            ui.Label({"Text": "Offset (s)", "Weight": 0}),
+            ui.LineEdit({"ID": "Offset", "PlaceholderText": "auto", "Weight": 0,
+                         "MinimumSize": [90, 0]}),
+            ui.Label({"Text": "Marker", "Weight": 0}),
+            ui.ComboBox({"ID": "Color", "Weight": 0, "MinimumSize": [130, 0]}),
+            ui.HGap(0, 1),
+        ]),
+
+        ui.VGap(4),
+        ui.HGroup({"Weight": 0, "Spacing": 8}, [
+            ui.Button({"ID": "Apply", "Text": "▶  Applica alla timeline",
+                       "Weight": 1}),
             ui.Button({"ID": "Refresh", "Text": "Aggiorna sorgente", "Weight": 0}),
             ui.Button({"ID": "Close", "Text": "Chiudi", "Weight": 0}),
         ]),
@@ -345,6 +408,7 @@ def on_apply(ev):
             return
 
     # timeline di destinazione
+    backup_note = ""
     if itm["NewTl"].Checked:
         name = itm["TlName"].Text.strip() or "MakeACut_Assembly"
         tl = mp.CreateEmptyTimeline(name)
@@ -360,6 +424,21 @@ def on_apply(ev):
         if tl is None:
             set_status("Nessuna timeline aperta. Aprine una o spunta 'Crea nuova timeline'.")
             return
+        # Backup: duplica la timeline aperta PRIMA di modificarla. La copia resta
+        # lo snapshot pre-taglio; i tagli vanno sull'originale.
+        if itm["Backup"].Checked:
+            stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup = None
+            try:
+                backup = tl.DuplicateTimeline("%s_BACKUP_%s" % (tl.GetName(), stamp))
+            except Exception:
+                backup = None
+            if backup is None:
+                set_status("Backup non riuscito: interrotto per sicurezza. "
+                           "Deseleziona 'Backup' per procedere senza.")
+                return
+            backup_note = " Backup: '%s'." % backup.GetName()
+        # DuplicateTimeline puo' rendere corrente la copia: riporta l'originale.
         proj.SetCurrentTimeline(tl)
 
     color = itm["Color"].CurrentText or "Yellow"
@@ -394,7 +473,8 @@ def on_apply(ev):
         except Exception:
             pass
 
-    msg = "Fatto: %d/%d segmenti su '%s', marker %s." % (ok, len(ROWS), tl.GetName(), color)
+    msg = "Fatto: %d/%d segmenti su '%s', marker %s.%s" % (
+        ok, len(ROWS), tl.GetName(), color, backup_note)
     if warn:
         msg += " %d oltre la durata clip (troncati)." % warn
     if fails:
