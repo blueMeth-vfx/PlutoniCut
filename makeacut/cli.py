@@ -95,6 +95,7 @@ def cmd_run(args) -> int:
     plan = build_plan(
         cuts.segments, fps, cuts.srt_offset,
         clip_start_sec=clip_start_sec, manual_offset_sec=manual,
+        clip_frames=(props.get("frames") if props else None),
     )
 
     _log("")

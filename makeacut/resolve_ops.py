@@ -7,9 +7,33 @@ planner.py. This module just executes a Plan against the current project.
 from __future__ import annotations
 
 import difflib
+import re
 from typing import List, Optional, Tuple
 
 from .planner import Plan
+
+
+def _tokens(s: str) -> List[str]:
+    return [t for t in re.split(r"[^a-z0-9]+", s.lower()) if t]
+
+
+def score_name(hint: str, name: str) -> Tuple[float, bool]:
+    """Pure name scorer. Returns (score, strong).
+
+    `strong` is True only when the match is trustworthy: the whole hint appears as
+    a substring, or every hint token is present in the name. A shared generic
+    token like 'interview' alone does NOT make a match strong, so picking the
+    wrong surname gets flagged instead of silently accepted.
+    """
+    h, n = hint.lower().strip(), name.lower().strip()
+    ht, nt = _tokens(h), _tokens(n)
+    nt_set = set(nt)
+    full_sub = bool(h) and h in n
+    all_tokens = bool(ht) and all(t in nt_set for t in ht)
+    overlap = (sum(1 for t in ht if t in nt_set) / len(ht)) if ht else 0.0
+    ratio = difflib.SequenceMatcher(None, h, n).ratio()
+    score = (2.0 if full_sub else 0.0) + overlap + 0.3 * ratio
+    return score, (full_sub or all_tokens)
 
 
 # ---------------------------------------------------------------- media pool
@@ -60,24 +84,33 @@ def find_clip(project, media_pool, clip_hint: str) -> Tuple[Optional[object], Li
         log.append("Nessuna clip media trovata nel media pool")
         return None, log
 
-    hint = clip_hint.lower()
     scored = []
     for c in candidates:
         name = c.GetName() or ""
-        low = name.lower()
-        contains = hint in low
-        ratio = difflib.SequenceMatcher(None, hint, low).ratio()
-        score = (1.0 if contains else 0.0) + ratio
-        scored.append((score, name, c))
+        score, strong = score_name(clip_hint, name)
+        scored.append((score, strong, name, c))
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    best_score, best_name, best_clip = scored[0]
+    best_score, best_strong, best_name, best_clip = scored[0]
     log.append(f"Fuzzy match su '{clip_hint}': '{best_name}' (score {best_score:.2f})")
-    runners = [f"{n} ({s:.2f})" for s, n, _ in scored[1:4]]
+    runners = [f"{n} ({s:.2f})" for s, _, n, _ in scored[1:4]]
     if runners:
         log.append("Altri candidati: " + ", ".join(runners))
-    if best_score < 0.5:
-        log.append("ATTENZIONE: match debole, verifica che sia la clip giusta")
+
+    strong_hits = [n for _, st, n, _ in scored if st]
+    if not best_strong:
+        log.append(
+            f"ATTENZIONE: nessuna clip contiene tutti i token di '{clip_hint}'. "
+            f"Match incerto: verifica o affina 'clip_hint'."
+        )
+    elif len(strong_hits) > 1:
+        log.append(
+            "ATTENZIONE: piu' clip corrispondono a '"
+            + clip_hint
+            + "': "
+            + ", ".join(strong_hits[:5])
+            + ". Uso la prima; affina 'clip_hint' se sbagliata."
+        )
     return best_clip, log
 
 
@@ -92,11 +125,17 @@ def read_clip_props(clip) -> dict:
     """Pull fps and Start TC (and a couple extras for logging)."""
     fps = clip.GetClipProperty("FPS")
     start_tc = clip.GetClipProperty("Start TC")
+    frames = clip.GetClipProperty("Frames")
+    try:
+        frames = int(frames)
+    except (TypeError, ValueError):
+        frames = None
     return {
         "name": clip.GetName(),
         "fps": fps,
         "start_tc": start_tc,
         "duration": clip.GetClipProperty("Duration"),
+        "frames": frames,
         "path": clip.GetClipProperty("File Path"),
     }
 

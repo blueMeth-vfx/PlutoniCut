@@ -15,11 +15,13 @@ from typing import List, Optional
 from .cutsfile import Segment
 from .timecode import normalize_fps, seconds_to_frames
 
-# AppendToTimeline treats endFrame as the LAST included frame (inclusive), so the
-# clip length is endFrame - startFrame + 1. The SRT 'out' is an exclusive boundary
-# (end of the last word), so we map it to out_frame and pass endFrame = out_frame-1.
-# Verified against a live append; flip if a future Resolve build changes this.
-END_FRAME_INCLUSIVE = True
+# AppendToTimeline treats endFrame as EXCLUSIVE: the appended clip covers
+# [startFrame, endFrame-1], so its length is endFrame - startFrame. VERIFIED live
+# (Resolve Studio 21.0.4.5): passing 240..479 yields a 239-frame item. The SRT
+# 'out' is itself an exclusive boundary (end of the last word) -> out_frame maps
+# straight to endFrame, giving length (out_sec-in_sec)*fps exactly. Flip only if a
+# future build changes this.
+END_FRAME_INCLUSIVE = False
 
 
 @dataclass
@@ -64,6 +66,7 @@ def build_plan(
     srt_offset: str,
     clip_start_sec: Optional[float],
     manual_offset_sec: Optional[float] = None,
+    clip_frames: Optional[int] = None,
 ) -> Plan:
     """Compute the frame plan.
 
@@ -117,6 +120,12 @@ def build_plan(
         end_frame = out_frame - 1 if END_FRAME_INCLUSIVE else out_frame
         if end_frame < in_frame:
             end_frame = in_frame  # degenerate 1-frame segment
+
+        if clip_frames and out_frame > clip_frames:
+            warnings.append(
+                f"'{seg.name}': out a {out_frame}f oltre la fine della clip "
+                f"({clip_frames}f): Resolve lo clampa, il segmento sara' troncato"
+            )
 
         length = end_frame - in_frame + (1 if END_FRAME_INCLUSIVE else 0)
         items.append(
