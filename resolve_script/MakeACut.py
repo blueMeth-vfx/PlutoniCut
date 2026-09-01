@@ -113,59 +113,55 @@ def _sec(text):
 win = disp.AddWindow({
     "ID": "MakeACutWin",
     "WindowTitle": "MakeACut",
-    "Geometry": [120, 100, 860, 600],
+    "Geometry": [100, 80, 1000, 600],
     "StyleSheet": STYLE,
 }, [
     ui.VGroup({"Spacing": 7, "Margin": 14}, [
         ui.HGroup({"Weight": 0, "Spacing": 10}, [
             ui.Label({"ID": "Header", "Text": "✂  MakeACut", "Weight": 0}),
-            ui.Label({"Text": "assembla i tagli sulla timeline",
+            ui.Label({"Text": "tieni solo gli in/out, taglia il resto",
                       "Weight": 1, "Alignment": {"AlignBottom": True}}),
         ]),
-        ui.Label({"ID": "Src", "Text": "Sorgente: (nessuna clip selezionata)",
+        ui.Label({"ID": "Src", "Text": "Timeline: (apri una timeline, poi Aggiorna)",
                   "Weight": 0}),
 
-        _sec("TAGLI  —  in / out = da tenere, il resto viene escluso"),
+        _sec("TAGLI  —  in / out = timecode della timeline da tenere"),
         ui.Tree({"ID": "Tree", "Weight": 1, "AlternatingRowColors": True,
                  "RootIsDecorated": False, "ItemsExpandable": False}),
         ui.HGroup({"Weight": 0, "Spacing": 6}, [
-            ui.LineEdit({"ID": "In", "PlaceholderText": "In  01:00:37,958"}),
-            ui.LineEdit({"ID": "Out", "PlaceholderText": "Out 01:01:13,250"}),
-            ui.LineEdit({"ID": "Name", "PlaceholderText": "Nome capitolo"}),
-            ui.LineEdit({"ID": "Note", "PlaceholderText": "Nota (opzionale)"}),
-            ui.Button({"ID": "Add", "Text": "+ Aggiungi", "Weight": 0}),
-            ui.Button({"ID": "Del", "Text": "Rimuovi", "Weight": 0}),
+            ui.LineEdit({"ID": "In", "PlaceholderText": "In  01:00:34,830", "Weight": 1}),
+            ui.LineEdit({"ID": "Out", "PlaceholderText": "Out 01:03:15,870", "Weight": 1}),
+            ui.LineEdit({"ID": "Name", "PlaceholderText": "Nome", "Weight": 1}),
+            ui.LineEdit({"ID": "Note", "PlaceholderText": "Nota", "Weight": 1}),
+            ui.Button({"ID": "Add", "Text": "+ Riga", "Weight": 0}),
+            ui.Button({"ID": "Del", "Text": "– Riga", "Weight": 0}),
         ]),
 
         _sec("AUTOCOMPILA DA FILE"),
         ui.HGroup({"Weight": 0, "Spacing": 6}, [
-            ui.LineEdit({"ID": "Path", "PlaceholderText": "percorso di cut.json"}),
-            ui.Button({"ID": "Browse", "Text": "Sfoglia…", "Weight": 0}),
-            ui.Button({"ID": "Load", "Text": "Carica cut.json", "Weight": 0}),
+            ui.LineEdit({"ID": "Path", "PlaceholderText": "percorso di cut.json", "Weight": 1}),
+            ui.Button({"ID": "Browse", "Text": "Sfoglia", "Weight": 0}),
+            ui.Button({"ID": "Load", "Text": "Carica", "Weight": 0}),
         ]),
 
-        _sec("DESTINAZIONE"),
-        ui.HGroup({"Weight": 0, "Spacing": 10}, [
-            ui.CheckBox({"ID": "NewTl", "Text": "Crea nuova timeline", "Weight": 0}),
-            ui.LineEdit({"ID": "TlName", "PlaceholderText": "nome nuova timeline",
+        _sec("MONTAGGIO  —  l'originale resta intatta (backup automatico)"),
+        ui.HGroup({"Weight": 0, "Spacing": 8}, [
+            ui.Label({"Text": "Nome", "Weight": 0}),
+            ui.LineEdit({"ID": "TlName", "PlaceholderText": "nome timeline montata",
                          "Weight": 1}),
-            ui.CheckBox({"ID": "Backup", "Text": "Backup prima dei tagli",
-                         "Checked": True, "Weight": 0}),
-        ]),
-        ui.HGroup({"Weight": 0, "Spacing": 10}, [
-            ui.Label({"Text": "Offset (s)", "Weight": 0}),
-            ui.LineEdit({"ID": "Offset", "PlaceholderText": "auto", "Weight": 0,
-                         "MinimumSize": [90, 0]}),
+            ui.Label({"Text": "Offset s", "Weight": 0}),
+            ui.LineEdit({"ID": "Offset", "PlaceholderText": "0", "Weight": 0,
+                         "MinimumSize": [64, 0]}),
             ui.Label({"Text": "Marker", "Weight": 0}),
-            ui.ComboBox({"ID": "Color", "Weight": 0, "MinimumSize": [130, 0]}),
-            ui.HGap(0, 1),
+            ui.ComboBox({"ID": "Color", "Weight": 0, "MinimumSize": [104, 0]}),
+            ui.CheckBox({"ID": "Backup", "Text": "Copia _BACKUP",
+                         "Checked": False, "Weight": 0}),
         ]),
 
         ui.VGap(4),
         ui.HGroup({"Weight": 0, "Spacing": 8}, [
-            ui.Button({"ID": "Apply", "Text": "▶  Applica alla timeline",
-                       "Weight": 1}),
-            ui.Button({"ID": "Refresh", "Text": "Aggiorna sorgente", "Weight": 0}),
+            ui.Button({"ID": "Apply", "Text": "▶  Monta la timeline", "Weight": 1}),
+            ui.Button({"ID": "Refresh", "Text": "Aggiorna", "Weight": 0}),
             ui.Button({"ID": "Close", "Text": "Chiudi", "Weight": 0}),
         ]),
         ui.Label({"ID": "Status", "Text": "Pronto.", "Weight": 0,
@@ -234,38 +230,33 @@ def sync_from_tree():
                 pass
 
 
-# ---------------------------------------------------------------- sorgente
+# ----------------------------------------------------------- timeline aperta
 
-def current_source_clip():
-    """Clip selezionata nel Media Pool (niente match sul nome)."""
+def current_timeline():
+    """La timeline aperta: e' lei la sorgente da montare (non tocco i media)."""
     proj = resolve.GetProjectManager().GetCurrentProject()
     if not proj:
         return None, "Nessun progetto aperto."
-    mp = proj.GetMediaPool()
-    sel = None
+    tl = proj.GetCurrentTimeline()
+    if not tl:
+        return None, "Apri la timeline da montare, poi 'Aggiorna'."
     try:
-        sel = mp.GetSelectedClips()
+        fps = tl.GetSetting("timelineFrameRate")
     except Exception:
-        sel = None
-    clips = []
-    if isinstance(sel, dict):
-        clips = list(sel.values())
-    elif sel:
-        clips = list(sel)
-    # scarta eventuali timeline finite nel media pool
-    clips = [c for c in clips
-             if (c.GetClipProperty("Type") or "").lower() != "timeline"]
-    if not clips:
-        return None, "Seleziona la clip sorgente nel Media Pool, poi 'Aggiorna sorgente'."
-    if len(clips) > 1:
-        return clips[0], "Piu' clip selezionate: uso '%s'." % clips[0].GetName()
-    return clips[0], "Sorgente: %s" % clips[0].GetName()
+        fps = "?"
+    n = 0
+    try:
+        for ti in range(1, (tl.GetTrackCount("video") or 0) + 1):
+            n += len(tl.GetItemListInTrack("video", ti) or [])
+    except Exception:
+        pass
+    return tl, "Timeline: %s   -   %d clip video   -   %s fps" % (tl.GetName(), n, fps)
 
 
 def refresh_source(ev=None):
-    clip, msg = current_source_clip()
+    tl, msg = current_timeline()
     itm["Src"].Text = msg
-    return clip
+    return tl
 
 
 # ---------------------------------------------------------------- eventi UI
@@ -378,105 +369,123 @@ def on_apply(ev):
     if not ROWS:
         set_status("Tabella vuota.")
         return
-    clip = refresh_source()
-    if not clip:
+    src_tl = refresh_source()
+    if not src_tl:
         return
     proj = resolve.GetProjectManager().GetCurrentProject()
     mp = proj.GetMediaPool()
 
-    fps = clip.GetClipProperty("FPS")
     try:
-        clip_frames = int(clip.GetClipProperty("Frames"))
-    except (TypeError, ValueError):
-        clip_frames = None
+        fps = norm_fps(src_tl.GetSetting("timelineFrameRate"))
+    except Exception:
+        set_status("Frame rate della timeline non leggibile.")
+        return
 
-    # offset auto = ora tonda del primo IN; oppure valore manuale in secondi
+    # Le clip attualmente in timeline: da qui prendo i pezzi da tenere.
+    items = []
     try:
-        ins = [parse_srt_tc(r["in"]) for r in ROWS]
-        outs = [parse_srt_tc(r["out"]) for r in ROWS]
+        for ti in range(1, (src_tl.GetTrackCount("video") or 0) + 1):
+            items += src_tl.GetItemListInTrack("video", ti) or []
+    except Exception:
+        items = []
+    if not items:
+        set_status("La timeline aperta non ha clip video.")
+        return
+    items.sort(key=lambda it: it.GetStart())
+    tl_start, tl_end = src_tl.GetStartFrame(), src_tl.GetEndFrame()
+
+    # offset opzionale in secondi (0 = nessuno). Gli in/out sono TC di timeline.
+    manual = itm["Offset"].Text.strip()
+    off_f = 0
+    if manual and manual not in ("0", "auto"):
+        try:
+            off_f = int(round(float(manual.replace(",", ".")) * fps))
+        except ValueError:
+            set_status("Offset non numerico (secondi).")
+            return
+
+    # righe -> range assoluti in frame di timeline
+    try:
+        segs = [(int(round(parse_srt_tc(r["in"]) * fps)) + off_f,
+                 int(round(parse_srt_tc(r["out"]) * fps)) + off_f, r)
+                for r in ROWS]
     except ValueError as e:
         set_status(str(e))
         return
-    srt_start = math.floor(min(ins) / 3600.0) * 3600.0
-    manual = itm["Offset"].Text.strip()
-    off = 0.0
-    if manual and manual.lower() != "auto":
-        try:
-            off = float(manual.replace(",", "."))
-        except ValueError:
-            set_status("Offset non numerico: usa un numero di secondi o 'auto'.")
-            return
 
-    # timeline di destinazione
+    # Copia extra opzionale dell'originale (l'originale resta comunque intatta).
     backup_note = ""
-    if itm["NewTl"].Checked:
-        name = itm["TlName"].Text.strip() or "MakeACut_Assembly"
-        tl = mp.CreateEmptyTimeline(name)
-        n = 2
-        while tl is None and n < 100:
-            tl = mp.CreateEmptyTimeline("%s (%d)" % (name, n))
-            n += 1
-        if tl is None:
-            set_status("Impossibile creare la nuova timeline.")
-            return
-    else:
-        tl = proj.GetCurrentTimeline()
-        if tl is None:
-            set_status("Nessuna timeline aperta. Aprine una o spunta 'Crea nuova timeline'.")
-            return
-        # Backup: duplica la timeline aperta PRIMA di modificarla. La copia resta
-        # lo snapshot pre-taglio; i tagli vanno sull'originale.
-        if itm["Backup"].Checked:
-            stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup = None
-            try:
-                backup = tl.DuplicateTimeline("%s_BACKUP_%s" % (tl.GetName(), stamp))
-            except Exception:
-                backup = None
-            if backup is None:
-                set_status("Backup non riuscito: interrotto per sicurezza. "
-                           "Deseleziona 'Backup' per procedere senza.")
-                return
-            backup_note = " Backup: '%s'." % backup.GetName()
-        # DuplicateTimeline puo' rendere corrente la copia: riporta l'originale.
-        proj.SetCurrentTimeline(tl)
+    if itm["Backup"].Checked:
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        try:
+            bk = src_tl.DuplicateTimeline("%s_BACKUP_%s" % (src_tl.GetName(), stamp))
+        except Exception:
+            bk = None
+        if bk is not None:
+            backup_note = " Copia: '%s'." % bk.GetName()
+
+    # Timeline MONTATA: nuova, ricostruita coi soli range tenuti. L'API non sa
+    # fare razor in-place, quindi l'originale non viene modificata (= backup).
+    name = itm["TlName"].Text.strip() or (src_tl.GetName() + "_CUT")
+    new_tl = mp.CreateEmptyTimeline(name)
+    k = 2
+    while new_tl is None and k < 100:
+        new_tl = mp.CreateEmptyTimeline("%s (%d)" % (name, k))
+        k += 1
+    if new_tl is None:
+        set_status("Impossibile creare la timeline montata.")
+        return
+    proj.SetCurrentTimeline(new_tl)
 
     color = itm["Color"].CurrentText or "Yellow"
     ok = 0
     fails = []
-    warn = 0
-    tl_start = tl.GetStartFrame()
-    for i, r in enumerate(ROWS):
-        in_f = to_frames(ins[i] - srt_start + off, fps)
-        out_f = to_frames(outs[i] - srt_start + off, fps)   # endFrame esclusivo
-        if in_f < 0:
-            in_f = 0
-        if out_f <= in_f:
-            out_f = in_f + 1
-        if clip_frames and out_f > clip_frames:
-            warn += 1
-        info = {"mediaPoolItem": clip, "startFrame": in_f, "endFrame": out_f}
+    oob = 0
+    cursor = 0  # frame nella timeline montata -> posizione dei marker
+    for a, b, r in segs:
+        if b <= a:
+            fails.append((r["name"], "out <= in"))
+            continue
+        if a < tl_start or b > tl_end:
+            oob += 1
+        # ritaglia i pezzi dagli item che intersecano [a, b)
+        infos = []
+        seg_len = 0
+        for it in items:
+            s, e = it.GetStart(), it.GetEnd()
+            aa, bb = max(a, s), min(b, e)
+            if bb <= aa:
+                continue
+            mpi = it.GetMediaPoolItem()
+            if not mpi:
+                continue
+            src0 = it.GetSourceStartFrame()
+            infos.append({"mediaPoolItem": mpi,
+                          "startFrame": src0 + (aa - s),
+                          "endFrame": src0 + (bb - s)})   # endFrame esclusivo
+            seg_len += (bb - aa)
+        if not infos:
+            fails.append((r["name"], "nessuna clip nel range"))
+            continue
         try:
-            added = mp.AppendToTimeline([info])
-        except Exception as e:
-            fails.append((r["name"], str(e)))
+            added = mp.AppendToTimeline(infos)
+        except Exception as ex:
+            fails.append((r["name"], str(ex)))
             continue
         if not added:
-            fails.append((r["name"], "AppendToTimeline vuoto"))
+            fails.append((r["name"], "append vuoto"))
             continue
         ok += 1
-        # marker esattamente all'inizio della clip appena appesa
         try:
-            item = added[0]
-            frame = item.GetStart() - tl_start
-            tl.AddMarker(int(frame), color, r["name"], r.get("note") or "", 1, "")
+            new_tl.AddMarker(int(cursor), color, r["name"], r.get("note") or "", 1, "")
         except Exception:
             pass
+        cursor += seg_len
 
-    msg = "Fatto: %d/%d segmenti su '%s', marker %s.%s" % (
-        ok, len(ROWS), tl.GetName(), color, backup_note)
-    if warn:
-        msg += " %d oltre la durata clip (troncati)." % warn
+    msg = "Montata '%s': %d/%d segmenti, marker %s.%s" % (
+        new_tl.GetName(), ok, len(segs), color, backup_note)
+    if oob:
+        msg += " %d range fuori dalla timeline." % oob
     if fails:
         msg += " Falliti: " + "; ".join("%s (%s)" % f for f in fails[:3])
     set_status(msg)
