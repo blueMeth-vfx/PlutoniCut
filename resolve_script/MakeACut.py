@@ -457,64 +457,64 @@ def on_apply(ev):
     ok = 0
     fails = []
     oob = 0
-    cursor = 0  # frame nella timeline montata -> posizione dei marker
+    cursor = 0  # frame COMPATTATO nel montato: avanza solo del contenuto reale
     for a, b, r in segs:
         if b <= a:
             fails.append((r["name"], "out <= in"))
             continue
         if a < tl_start or b > tl_end:
             oob += 1
-        seg_len = b - a           # il range [a,b] viene compattato a partire da cursor
-        base = new_start + cursor
-        infos = []
-        # VIDEO: ogni item video che interseca [a,b), piazzato con recordFrame
+        seg_start = cursor
+        # Sotto-pezzi video che intersecano [a,b), in ordine temporale. Li impacchetto
+        # UNO DI SEGUITO ALL'ALTRO (nessun buco), portandomi dietro l'audio allineato.
+        pieces = []
         for it, ti in vitems:
             s, e = it.GetStart(), it.GetEnd()
             aa, bb = max(a, s), min(b, e)
-            if bb <= aa:
+            if bb > aa:
+                pieces.append((aa, bb, it, ti))
+        pieces.sort(key=lambda x: (x[0], x[3]))
+        placed = False
+        for aa, bb, vit, vti in pieces:
+            mpi = vit.GetMediaPoolItem()
+            vsrc = vit.GetSourceStartFrame()
+            vs = vit.GetStart()
+            if mpi is None or vsrc is None:   # titoli/generator/compound: nessuna sorgente
                 continue
-            mpi = it.GetMediaPoolItem()
-            if not mpi:
-                continue
-            src0 = it.GetSourceStartFrame()
-            info = {"mediaPoolItem": mpi,
-                    "startFrame": src0 + (aa - s), "endFrame": src0 + (bb - s),
-                    "recordFrame": base + (aa - a), "trackIndex": ti}
+            # Append SEQUENZIALE (niente recordFrame): impacchetta senza buchi. Video
+            # (solo video) e audio (dalle tracce audio) nello STESSO append -> allineati.
+            infos = [{"mediaPoolItem": mpi,
+                      "startFrame": vsrc + (aa - vs), "endFrame": vsrc + (bb - vs),
+                      "trackIndex": vti}]
             if rebuild_audio:
-                info["mediaType"] = 1   # solo video (l'audio arriva dalle tracce audio)
-            infos.append(info)
-        # AUDIO: ricostruito dalle tracce audio (l'audio sincronizzato in timeline)
-        if rebuild_audio:
-            for it, ti in aitems:
-                s, e = it.GetStart(), it.GetEnd()
-                aa, bb = max(a, s), min(b, e)
-                if bb <= aa:
-                    continue
-                mpi = it.GetMediaPoolItem()
-                if not mpi:
-                    continue
-                src0 = it.GetSourceStartFrame()
-                infos.append({"mediaPoolItem": mpi,
-                              "startFrame": src0 + (aa - s), "endFrame": src0 + (bb - s),
-                              "recordFrame": base + (aa - a), "trackIndex": ti,
-                              "mediaType": 2})   # solo audio
-        if not infos:
+                infos[0]["mediaType"] = 1     # solo video
+                for ait, ati in aitems:
+                    s2, e2 = ait.GetStart(), ait.GetEnd()
+                    aaa, bbb = max(aa, s2), min(bb, e2)
+                    if bbb <= aaa:
+                        continue
+                    mpa = ait.GetMediaPoolItem()
+                    src0a = ait.GetSourceStartFrame()
+                    if mpa is None or src0a is None:
+                        continue
+                    infos.append({"mediaPoolItem": mpa,
+                                  "startFrame": src0a + (aaa - s2),
+                                  "endFrame": src0a + (bbb - s2),
+                                  "trackIndex": ati, "mediaType": 2})
+            try:
+                if mp.AppendToTimeline(infos):
+                    placed = True
+                    cursor += (bb - aa)       # avanza SOLO del contenuto -> compattato
+            except Exception as ex:
+                fails.append((r["name"], str(ex)))
+        if not placed:
             fails.append((r["name"], "nessuna clip nel range"))
-            continue
-        try:
-            added = mp.AppendToTimeline(infos)
-        except Exception as ex:
-            fails.append((r["name"], str(ex)))
-            continue
-        if not added:
-            fails.append((r["name"], "append vuoto"))
             continue
         ok += 1
         try:
-            new_tl.AddMarker(int(cursor), color, r["name"], r.get("note") or "", 1, "")
+            new_tl.AddMarker(int(seg_start), color, r["name"], r.get("note") or "", 1, "")
         except Exception:
             pass
-        cursor += seg_len
 
     msg = "Montata '%s': %d/%d segmenti, marker %s.%s" % (
         new_tl.GetName(), ok, len(segs), color, backup_note)
