@@ -375,17 +375,29 @@ def on_apply(ev):
         set_status("Frame rate della timeline non leggibile.")
         return
 
-    # Le clip attualmente in timeline: da qui prendo i pezzi da tenere.
-    items = []
+    # Ricostruisco OGNI traccia (video E audio) in modo indipendente, cosi' il
+    # montato porta l'audio che c'e' in timeline (es. recorder sincronizzato su una
+    # traccia separata), NON lo scratch embedded delle clip video.
+    nv = src_tl.GetTrackCount("video") or 0
+    na = src_tl.GetTrackCount("audio") or 0
+    vitems, aitems = [], []
     try:
-        for ti in range(1, (src_tl.GetTrackCount("video") or 0) + 1):
-            items += src_tl.GetItemListInTrack("video", ti) or []
+        for ti in range(1, nv + 1):
+            for it in (src_tl.GetItemListInTrack("video", ti) or []):
+                vitems.append((it, ti))
+        for ti in range(1, na + 1):
+            for it in (src_tl.GetItemListInTrack("audio", ti) or []):
+                aitems.append((it, ti))
     except Exception:
-        items = []
-    if not items:
+        vitems, aitems = [], []
+    if not vitems:
         set_status("La timeline aperta non ha clip video.")
         return
-    items.sort(key=lambda it: it.GetStart())
+    vitems.sort(key=lambda x: x[0].GetStart())
+    aitems.sort(key=lambda x: x[0].GetStart())
+    # Se ci sono tracce audio, le ricostruisco separate (video->solo video,
+    # audio->solo audio). Se non c'e' audio, tengo il video con il suo audio.
+    rebuild_audio = len(aitems) > 0
     tl_start, tl_end = src_tl.GetStartFrame(), src_tl.GetEndFrame()
 
     # offset opzionale in secondi (0 = nessuno). Gli in/out sono TC di timeline.
@@ -431,6 +443,16 @@ def on_apply(ev):
         return
     proj.SetCurrentTimeline(new_tl)
 
+    # Assicura abbastanza tracce nel montato per rispettare gli indici originali.
+    try:
+        while (new_tl.GetTrackCount("video") or 1) < nv:
+            new_tl.AddTrack("video")
+        while (new_tl.GetTrackCount("audio") or 1) < na:
+            new_tl.AddTrack("audio")
+    except Exception:
+        pass
+    new_start = new_tl.GetStartFrame()
+
     color = itm["Color"].CurrentText or "Yellow"
     ok = 0
     fails = []
@@ -442,10 +464,11 @@ def on_apply(ev):
             continue
         if a < tl_start or b > tl_end:
             oob += 1
-        # ritaglia i pezzi dagli item che intersecano [a, b)
+        seg_len = b - a           # il range [a,b] viene compattato a partire da cursor
+        base = new_start + cursor
         infos = []
-        seg_len = 0
-        for it in items:
+        # VIDEO: ogni item video che interseca [a,b), piazzato con recordFrame
+        for it, ti in vitems:
             s, e = it.GetStart(), it.GetEnd()
             aa, bb = max(a, s), min(b, e)
             if bb <= aa:
@@ -454,10 +477,27 @@ def on_apply(ev):
             if not mpi:
                 continue
             src0 = it.GetSourceStartFrame()
-            infos.append({"mediaPoolItem": mpi,
-                          "startFrame": src0 + (aa - s),
-                          "endFrame": src0 + (bb - s)})   # endFrame esclusivo
-            seg_len += (bb - aa)
+            info = {"mediaPoolItem": mpi,
+                    "startFrame": src0 + (aa - s), "endFrame": src0 + (bb - s),
+                    "recordFrame": base + (aa - a), "trackIndex": ti}
+            if rebuild_audio:
+                info["mediaType"] = 1   # solo video (l'audio arriva dalle tracce audio)
+            infos.append(info)
+        # AUDIO: ricostruito dalle tracce audio (l'audio sincronizzato in timeline)
+        if rebuild_audio:
+            for it, ti in aitems:
+                s, e = it.GetStart(), it.GetEnd()
+                aa, bb = max(a, s), min(b, e)
+                if bb <= aa:
+                    continue
+                mpi = it.GetMediaPoolItem()
+                if not mpi:
+                    continue
+                src0 = it.GetSourceStartFrame()
+                infos.append({"mediaPoolItem": mpi,
+                              "startFrame": src0 + (aa - s), "endFrame": src0 + (bb - s),
+                              "recordFrame": base + (aa - a), "trackIndex": ti,
+                              "mediaType": 2})   # solo audio
         if not infos:
             fails.append((r["name"], "nessuna clip nel range"))
             continue
