@@ -458,6 +458,7 @@ def on_apply(ev):
     fails = []
     oob = 0
     cursor = 0  # frame COMPATTATO nel montato: avanza solo del contenuto reale
+    all_items = vitems + aitems
     for a, b, r in segs:
         if b <= a:
             fails.append((r["name"], "out <= in"))
@@ -465,48 +466,67 @@ def on_apply(ev):
         if a < tl_start or b > tl_end:
             oob += 1
         seg_start = cursor
-        # Sotto-pezzi video che intersecano [a,b), in ordine temporale. Li impacchetto
-        # UNO DI SEGUITO ALL'ALTRO (nessun buco), portandomi dietro l'audio allineato.
-        pieces = []
-        for it, ti in vitems:
+        # Confini di TUTTE le clip (video+audio) dentro [a,b) -> sotto-intervalli in cui
+        # l'insieme dei clip che coprono e' costante. Cosi' tengo le tracce in PARALLELO.
+        pts = {a, b}
+        for it, ti in all_items:
             s, e = it.GetStart(), it.GetEnd()
-            aa, bb = max(a, s), min(b, e)
-            if bb > aa:
-                pieces.append((aa, bb, it, ti))
-        pieces.sort(key=lambda x: (x[0], x[3]))
+            if a < s < b:
+                pts.add(s)
+            if a < e < b:
+                pts.add(e)
+        subs = sorted(pts)
         placed = False
-        for aa, bb, vit, vti in pieces:
-            mpi = vit.GetMediaPoolItem()
-            vsrc = vit.GetSourceStartFrame()
-            vs = vit.GetStart()
-            if mpi is None or vsrc is None:   # titoli/generator/compound: nessuna sorgente
+        for x, y in zip(subs, subs[1:]):
+            if y <= x:
                 continue
-            # Append SEQUENZIALE (niente recordFrame): impacchetta senza buchi. Video
-            # (solo video) e audio (dalle tracce audio) nello STESSO append -> allineati.
-            infos = [{"mediaPoolItem": mpi,
-                      "startFrame": vsrc + (aa - vs), "endFrame": vsrc + (bb - vs),
-                      "trackIndex": vti}]
+            rec = new_start + cursor          # posizione compattata del sotto-intervallo
+            # VIDEO che coprono [x,y], per traccia
+            vpieces = []
+            for it, ti in vitems:
+                s, e = it.GetStart(), it.GetEnd()
+                if s <= x and e >= y:
+                    mpi = it.GetMediaPoolItem()
+                    s0 = it.GetSourceStartFrame()
+                    if mpi is not None and s0 is not None:
+                        vpieces.append((ti, {"mediaPoolItem": mpi,
+                                             "startFrame": s0 + (x - s),
+                                             "endFrame": s0 + (y - s), "trackIndex": ti}))
+            if not vpieces:
+                continue                      # nessun video qui: compatta via (niente avanzamento)
+            vpieces.sort(key=lambda z: z[0])
+            # AUDIO che coprono [x,y]
+            apieces = []
             if rebuild_audio:
-                infos[0]["mediaType"] = 1     # solo video
-                for ait, ati in aitems:
-                    s2, e2 = ait.GetStart(), ait.GetEnd()
-                    aaa, bbb = max(aa, s2), min(bb, e2)
-                    if bbb <= aaa:
-                        continue
-                    mpa = ait.GetMediaPoolItem()
-                    src0a = ait.GetSourceStartFrame()
-                    if mpa is None or src0a is None:
-                        continue
-                    infos.append({"mediaPoolItem": mpa,
-                                  "startFrame": src0a + (aaa - s2),
-                                  "endFrame": src0a + (bbb - s2),
-                                  "trackIndex": ati, "mediaType": 2})
+                for it, ti in aitems:
+                    s, e = it.GetStart(), it.GetEnd()
+                    if s <= x and e >= y:
+                        mpa = it.GetMediaPoolItem()
+                        s0 = it.GetSourceStartFrame()
+                        if mpa is not None and s0 is not None:
+                            apieces.append({"mediaPoolItem": mpa,
+                                            "startFrame": s0 + (x - s),
+                                            "endFrame": s0 + (y - s),
+                                            "trackIndex": ti, "mediaType": 2})
+            # ANCORA: video della traccia piu' bassa + audio, append SEQUENZIALE (gapless)
+            anchor = vpieces[0][1]
+            if rebuild_audio:
+                anchor["mediaType"] = 1
             try:
-                if mp.AppendToTimeline(infos):
+                if mp.AppendToTimeline([anchor] + apieces):
                     placed = True
-                    cursor += (bb - aa)       # avanza SOLO del contenuto -> compattato
             except Exception as ex:
                 fails.append((r["name"], str(ex)))
+                continue
+            # ALTRE tracce video -> recordFrame alla STESSA posizione (si impilano allineate)
+            for ti, info in vpieces[1:]:
+                info["mediaType"] = 1
+                info["recordFrame"] = rec
+                try:
+                    mp.AppendToTimeline([info])
+                except Exception:
+                    pass
+            cursor += (y - x)
         if not placed:
             fails.append((r["name"], "nessuna clip nel range"))
             continue
