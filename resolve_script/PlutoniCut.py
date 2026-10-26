@@ -12,7 +12,12 @@ Self-contained: nessuna dipendenza esterna, gira con il Python interno di Resolv
 import datetime
 import json
 import math
+import os
 import re
+
+_LOGO = os.path.join(os.environ.get("APPDATA", ""), "Blackmagic Design",
+                     "DaVinci Resolve", "Support", "Fusion", "Scripts", "Utility",
+                     "plutonic_logo.png")
 
 # --------------------------------------------------------------------------
 # Connessione a Resolve / Fusion (robusta sia da menu Scripts sia da Console)
@@ -70,55 +75,58 @@ ITEMS = []         # oggetti riga del Tree, in ordine parallelo a ROWS
 COLS = ["In", "Out", "Nome", "Nota"]
 
 # --- Tema scuro (Qt stylesheet) ------------------------------------------
-ACCENT = "#e8b33d"      # ambra, come i marker
+ACCENT = "#7c3aed"      # viola Plutonic (violet-600)
 STYLE = """
-* { font-family: 'Segoe UI','Helvetica Neue',sans-serif; font-size: 13px;
-    color: #e6e8ea; outline: none; }
-QWidget { background-color: #1b1e23; }
-QLabel#Header { font-size: 20px; font-weight: 800; color: %(a)s; }
-QLabel#Src { color: #b8c0cc; padding: 4px 2px; }
-QLineEdit, QComboBox { background: #262a31; border: 1px solid #3a3f47;
-    border-radius: 5px; padding: 5px 7px; selection-background-color: %(a)s; }
-QLineEdit:focus, QComboBox:focus { border: 1px solid %(a)s; }
+* { font-family: 'Segoe UI','Inter','Helvetica Neue',sans-serif; font-size: 13px;
+    color: #e5e7eb; outline: none; }
+QWidget { background-color: #0f1115; }
+QLabel#Header { font-size: 20px; font-weight: 800; color: #a78bfa; }
+QPushButton#Logo { background: transparent; border: 0; }
+QLabel#Src { color: #9ca3af; padding: 4px 2px; }
+QLineEdit, QComboBox { background: #111827; border: 1px solid #1f2937;
+    border-radius: 8px; padding: 6px 9px; selection-background-color: %(a)s; }
+QLineEdit:focus, QComboBox:focus { border: 1px solid #8b5cf6; }
 QComboBox::drop-down { border: 0; width: 18px; }
-QPushButton { background: #333842; border: 1px solid #444b55;
-    border-radius: 6px; padding: 6px 12px; }
-QPushButton:hover { background: #3d434e; }
-QPushButton:pressed { background: #2b303a; }
-QPushButton#Apply { background: %(a)s; color: #1b1e23; font-weight: 800;
-    border: 0; padding: 9px 12px; }
-QPushButton#Apply:hover { background: #f2c25a; }
-QPushButton#Close { color: #c9ccd1; }
+QPushButton { background: #1f2937; border: 1px solid #374151;
+    border-radius: 8px; padding: 7px 13px; }
+QPushButton:hover { background: #374151; }
+QPushButton:pressed { background: #111827; }
+QPushButton#Apply { background: %(a)s; color: #ffffff; font-weight: 700;
+    border: 0; padding: 9px 13px; }
+QPushButton#Apply:hover { background: #8b5cf6; }
+QPushButton#Close { color: #9ca3af; }
 QCheckBox { spacing: 6px; }
-QCheckBox::indicator { width: 15px; height: 15px; border-radius: 4px;
-    border: 1px solid #4a515b; background: #262a31; }
+QCheckBox::indicator { width: 16px; height: 16px; border-radius: 5px;
+    border: 1px solid #374151; background: #111827; }
 QCheckBox::indicator:checked { background: %(a)s; border: 1px solid %(a)s; }
-QTreeWidget, QTreeView { background: #15181c; border: 1px solid #333842;
-    border-radius: 6px; alternate-background-color: #191d22; }
-QHeaderView::section { background: #262a31; color: #aab2bd; border: 0;
-    border-bottom: 1px solid #333842; padding: 6px; font-weight: 700; }
-QTreeWidget::item { padding: 3px; }
-QTreeWidget::item:selected { background: %(a)s; color: #1b1e23; }
-QLabel#Status { color: #9aa2ad; background: #15181c; border: 1px solid #333842;
-    border-radius: 5px; padding: 6px 9px; }
+QTreeWidget, QTreeView { background: #0b0d11; border: 1px solid #1f2937;
+    border-radius: 10px; alternate-background-color: #111827; }
+QHeaderView::section { background: #111827; color: #9ca3af; border: 0;
+    border-bottom: 1px solid #1f2937; padding: 7px; font-weight: 700; }
+QTreeWidget::item { padding: 4px; }
+QTreeWidget::item:selected { background: %(a)s; color: #ffffff; }
+QLabel#Status { color: #9ca3af; background: #0b0d11; border: 1px solid #1f2937;
+    border-radius: 8px; padding: 7px 10px; }
 """ % {"a": ACCENT}
 
 
 def _sec(text):
     return ui.Label({"Text": text, "Weight": 0, "StyleSheet": (
-        "color:#8b929c; font-size:11px; font-weight:700; letter-spacing:1px;"
+        "color:#9f86e0; font-size:11px; font-weight:700; letter-spacing:1px;"
         " padding-top:8px;")})
 
 
 win = disp.AddWindow({
-    "ID": "MakeACutWin",
-    "WindowTitle": "MakeACut",
+    "ID": "PlutoniCutWin",
+    "WindowTitle": "PlutoniCut",
     "Geometry": [100, 80, 1000, 600],
     "StyleSheet": STYLE,
 }, [
     ui.VGroup({"Spacing": 7, "Margin": 14}, [
         ui.HGroup({"Weight": 0, "Spacing": 10}, [
-            ui.Label({"ID": "Header", "Text": "✂  MakeACut", "Weight": 0}),
+            ui.Button({"ID": "Logo", "Flat": True, "Weight": 0,
+                       "MinimumSize": [30, 30], "MaximumSize": [30, 30]}),
+            ui.Label({"ID": "Header", "Text": "PlutoniCut", "Weight": 0}),
             ui.Label({"Text": "tieni solo gli in/out, taglia il resto",
                       "Weight": 1, "Alignment": {"AlignBottom": True}}),
         ]),
@@ -164,6 +172,14 @@ win = disp.AddWindow({
 ])
 
 itm = win.GetItems()
+
+# Logo Plutonic nell'header (se il file e la build lo consentono)
+try:
+    if os.path.exists(_LOGO):
+        itm["Logo"].Icon = ui.Icon({"File": _LOGO})
+        itm["Logo"].IconSize = [26, 26]
+except Exception:
+    pass
 
 # Header + colonne
 try:
@@ -556,7 +572,7 @@ win.On.Load.Clicked = on_load
 win.On.Apply.Clicked = on_apply
 win.On.Refresh.Clicked = refresh_source
 win.On.Close.Clicked = on_close
-win.On.MakeACutWin.Close = on_close
+win.On.PlutoniCutWin.Close = on_close
 
 refresh_source()
 render()
