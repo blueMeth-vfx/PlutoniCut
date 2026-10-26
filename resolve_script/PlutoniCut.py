@@ -1,5 +1,5 @@
 """
-MakeACut - GUI per DaVinci Resolve (Workspace > Scripts > Utility > MakeACut)
+PlutoniCut - GUI per DaVinci Resolve (Workspace > Scripts > Utility > PlutoniCut)
 
 Apre una tabella dove inserisci gli IN/OUT dei tagli (timecode SRT tipo
 01:00:37,958) e li applica alla timeline APERTA in quel momento, prendendo come

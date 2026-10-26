@@ -1,0 +1,26 @@
+PlutoniCut - installazione in DaVinci Resolve
+=============================================
+(Plutonic Studio)
+
+Serve DaVinci Resolve STUDIO (nella versione gratuita lo scripting non c'e').
+
+1) Copia QUESTI DUE FILE:
+      PlutoniCut.py
+      plutonic_logo.png
+   dentro la cartella degli script "Utility" di Resolve:
+
+   Windows:
+     %APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility
+   macOS:
+     ~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility
+
+   (Su Windows incolla il percorso nella barra di Esplora File e premi Invio.
+    Se la cartella "Utility" non esiste, creala.)
+
+2) Avvia (o riavvia) DaVinci Resolve.
+
+3) Apri il plugin da:
+     Workspace > Scripts > Utility > PlutoniCut
+
+Il logo (plutonic_logo.png) serve solo per mostrare l'icona nel pannello:
+se manca, il plugin funziona lo stesso.
