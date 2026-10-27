@@ -128,25 +128,25 @@ _TMPL = """
 * { font-family: %(font)s; font-size: 13px; color: %(fg)s; outline: none; }
 QWidget { background-color: %(bg)s; }
 QLabel#Header { font-family: %(hfont)s; font-size: 20px; font-weight: 800; color: %(header)s; }
-QPushButton#Logo { background: transparent; border: 0; }
+QPushButton#Logo { background: transparent; border: 0; margin: 0px; }
 QPushButton#ThemeBtn { background: transparent; border: %(bw)s solid %(border2)s;
     border-radius: %(radius)s; padding: 4px 9px; color: %(muted)s; font-weight: 700; }
 QPushButton#ThemeBtn:hover { border: %(bw)s solid %(accent)s; color: %(fg)s; }
 QLabel#Src { color: %(muted)s; padding: 4px 2px; }
 QLineEdit, QComboBox { background: %(panel)s; border: %(bw)s solid %(border)s;
-    border-radius: %(radius)s; padding: 6px 9px; selection-background-color: %(accent)s;
-    selection-color: %(selfg)s; }
+    border-radius: %(radius)s; padding: 6px 9px; margin: 0px 3px;
+    selection-background-color: %(accent)s; selection-color: %(selfg)s; }
 QLineEdit:focus, QComboBox:focus { border: %(bw)s solid %(focus)s; }
 QComboBox::drop-down { border: 0; width: 18px; }
 QPushButton { background: %(panel)s; border: %(bw)s solid %(border2)s;
-    border-radius: %(radius)s; padding: 7px 13px; }
+    border-radius: %(radius)s; padding: 7px 13px; margin: 0px 3px; }
 QPushButton:hover { background: %(border)s; }
 QPushButton:pressed { background: %(tree)s; }
 QPushButton#Apply { background: %(primaryBg)s; color: %(primaryFg)s; font-weight: 700;
     %(primaryBorder)s padding: 9px 13px; }
 QPushButton#Apply:hover { background: %(primaryHover)s; }
 QPushButton#Close { color: %(muted)s; }
-QCheckBox { spacing: 6px; }
+QCheckBox { spacing: 6px; margin: 0px 3px; }
 QCheckBox::indicator { width: 16px; height: 16px; border-radius: 5px;
     border: %(bw)s solid %(border2)s; background: %(panel)s; }
 QCheckBox::indicator:checked { background: %(accent)s; border: %(bw)s solid %(accent)s; }
@@ -185,7 +185,7 @@ win = disp.AddWindow({
     "StyleSheet": STYLE,
 }, [
     ui.VGroup({"Spacing": 7, "Margin": 14}, [
-        ui.HGroup({"Weight": 0, "Spacing": 10}, [
+        ui.HGroup({"Weight": 0, "Spacing": 0}, [
             ui.Button({"ID": "Logo", "Flat": True, "Weight": 0,
                        "MinimumSize": [62, 48], "MaximumSize": [62, 48]}),
             ui.Label({"ID": "Header", "Text": "PlutoniCut", "Weight": 0}),
@@ -199,7 +199,7 @@ win = disp.AddWindow({
         _sec("TAGLI  —  in / out = timecode della timeline da tenere"),
         ui.Tree({"ID": "Tree", "Weight": 1, "AlternatingRowColors": True,
                  "RootIsDecorated": False, "ItemsExpandable": False}),
-        ui.HGroup({"Weight": 0, "Spacing": 6}, [
+        ui.HGroup({"Weight": 0, "Spacing": 0}, [
             ui.LineEdit({"ID": "In", "PlaceholderText": "In  01:00:34,830", "Weight": 3}),
             ui.LineEdit({"ID": "Out", "PlaceholderText": "Out 01:03:15,870", "Weight": 3}),
             ui.LineEdit({"ID": "Name", "PlaceholderText": "Nome", "Weight": 3}),
@@ -209,14 +209,14 @@ win = disp.AddWindow({
         ]),
 
         _sec("AUTOCOMPILA DA FILE"),
-        ui.HGroup({"Weight": 0, "Spacing": 6}, [
+        ui.HGroup({"Weight": 0, "Spacing": 0}, [
             ui.LineEdit({"ID": "Path", "PlaceholderText": "percorso di cut.json", "Weight": 6}),
             ui.Button({"ID": "Browse", "Text": "Sfoglia", "Weight": 1}),
             ui.Button({"ID": "Load", "Text": "Carica", "Weight": 1}),
         ]),
 
         _sec("MONTAGGIO  —  l'originale resta intatta (backup automatico)"),
-        ui.HGroup({"Weight": 0, "Spacing": 8}, [
+        ui.HGroup({"Weight": 0, "Spacing": 0}, [
             ui.LineEdit({"ID": "TlName", "PlaceholderText": "Nome timeline montata", "Weight": 5}),
             ui.LineEdit({"ID": "Offset", "PlaceholderText": "Offset s", "Weight": 2}),
             ui.ComboBox({"ID": "Color", "Weight": 2}),
@@ -224,7 +224,7 @@ win = disp.AddWindow({
         ]),
 
         ui.VGap(4),
-        ui.HGroup({"Weight": 0, "Spacing": 8}, [
+        ui.HGroup({"Weight": 0, "Spacing": 0}, [
             ui.Button({"ID": "Apply", "Text": "▶  Monta la timeline", "Weight": 3}),
             ui.Button({"ID": "Refresh", "Text": "Aggiorna", "Weight": 1}),
             ui.Button({"ID": "Close", "Text": "Chiudi", "Weight": 1}),
