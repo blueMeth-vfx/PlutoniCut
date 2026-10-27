@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resolve_script/plutonic_logo.png" width="110" alt="Plutonic">
+  <img src="resolve_script/plutonic_logo.png" width="170" alt="Plutonic">
 </p>
 
 <h1 align="center">PlutoniCut</h1>
@@ -33,6 +33,14 @@ Due modi di usarlo, con **logica identica**:
   timeline aperta prendendo come sorgente la clip selezionata nel Media Pool.
 - **Riga di comando** — lo stesso motore come CLI Python, con modalità *dry-run*,
   verifica contro l'SRT e un fallback che genera lo script per la Console interna.
+
+---
+
+## Due temi
+
+Col pulsante in alto a destra passi tra **Scuro — Plutonic Studio** (viola) e
+**Chiaro — Plutonic Labs** (paper + gradiente tramonto). La scelta è ricordata e
+condivisa con BeaTonic.
 
 ---
 
