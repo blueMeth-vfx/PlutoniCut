@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>PlutoniCamera</title>
+<link rel="icon" id="fav" href="/logo">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rubik+Mono+One&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/*@@CSS@@*/
+.camrows { display: flex; flex-direction: column; gap: 8px; }
+.camrow { display: grid; grid-template-columns: 22px 1.2fr 1.6fr 1.2fr 110px; gap: 12px; align-items: center; padding: 10px 12px;
+  background: var(--tile); border: var(--bd2); border-radius: calc(var(--r) - 6px); }
+.camrow .sw { width: 16px; height: 16px; border-radius: 5px; }
+.camrow b { font-size: 14px; }
+.camrow small { display: block; color: var(--muted); font-size: 11.5px; }
+.stars { display: flex; gap: 4px; }
+.stars button { all: unset; cursor: pointer; width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
+  font-size: 12px; font-weight: 800; background: var(--seg); border: var(--bd2); }
+.stars button.on { background: var(--accent-bg); color: var(--onaccent); }
+.camrow select { font: inherit; color: var(--fg); background: var(--seg); border: var(--bd2); border-radius: 8px; padding: 6px 8px; width: 100%; }
+.camrow select option { background: var(--card); color: var(--fg); }
+.camrow label.first { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.trigs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.trig { padding: 12px; border: var(--bd2); border-radius: calc(var(--r) - 6px); background: var(--tile); display: flex; flex-direction: column; gap: 8px; }
+.prev { height: 120px; }
+.share { display: flex; flex-wrap: wrap; gap: 8px; }
+.row2 { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+@media (max-width: 960px) { .camrow { grid-template-columns: 22px 1fr 1fr; } .trigs { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body class="look-studio" data-look="studio">
+<div class="bgfx"></div>
+<header class="top">
+  <img id="logo" src="/logo" alt="">
+  <div class="brand"><div class="name">PlutoniCamera</div><div class="tag">cambi camera automatici · Plutonic</div></div>
+  <div class="spacer"></div>
+  <button class="pin" id="pin" title="Tiene la finestra davanti a Resolve">📌 Sempre davanti</button>
+  <div class="looks"><span>Aspetto</span><button data-look="studio">Studio</button><button data-look="labs">Labs</button><button data-look="notte">Notte</button></div>
+</header>
+<main class="grid">
+  <section class="card wide">
+    <h2><span class="n">1</span> Timeline e camere</h2>
+    <div class="src">
+      <div class="tile"><div class="k">Timeline aperta in Resolve</div><div class="v song" id="tlName">—</div><div class="sub" id="tlInfo">—</div></div>
+      <button class="btn" id="bRefresh">↻ Aggiorna</button>
+    </div>
+    <label>Tracce camera (una per angolo, già in sync)</label>
+    <div class="tchips" id="cams"></div>
+    <div class="camrows" id="camrows"></div>
+    <div class="hint">Priorità: quanto spesso viene scelta quella camera (es. il campo largo più spesso dei primi piani).
+      Microfono: se ogni persona ha il suo, PlutoniCamera può inquadrare chi parla.</div>
+  </section>
+  <section class="card wide">
+    <h2><span class="n">2</span> Quando cambiare camera</h2>
+    <div class="trigs">
+      <div class="trig"><label class="opt"><button class="switch" id="t_pause"><i></i></button><span class="t"><b>Pause</b><small>quando ricomincia a parlare</small></span></label>
+        <div class="num"><input id="pause_min" type="number" step="0.1" min="0.2"><span>s di pausa minima</span></div></div>
+      <div class="trig"><label class="opt"><button class="switch" id="t_speaker"><i></i></button><span class="t"><b>Chi parla</b><small>serve il microfono delle camere</small></span></label></div>
+      <div class="trig"><label class="opt"><button class="switch" id="t_emph"><i></i></button><span class="t"><b>Enfasi</b><small>quando la voce si alza</small></span></label></div>
+      <div class="trig"><label class="opt"><button class="switch" id="t_cuts"><i></i></button><span class="t"><b>Tagli esistenti</b><small>dove le clip camera cambiano</small></span></label></div>
+    </div>
+    <div class="cols3">
+      <div><label>Voce da ascoltare (pause ed enfasi)</label><div class="tchips" id="voice"></div></div>
+      <div><label>Durata minima inquadratura</label><div class="num"><input id="min_shot" type="number" step="0.5" min="0.5"><span>s — niente cambi più ravvicinati</span></div></div>
+      <div><label>Durata massima inquadratura</label><div class="num"><input id="max_shot" type="number" step="1" min="1"><span>s — poi si cambia comunque</span></div></div>
+    </div>
+    <div class="cols">
+      <div><label>Parte da montare</label>
+        <div class="seg"><button id="rAll"><b>Tutta la timeline</b></button><button id="rSel"><b>Solo un tratto</b><small>da … a …</small></button></div>
+        <div class="rng" id="rBox" hidden>da <input id="from" placeholder="01:00:00:00"><button class="mini" id="ph_from" title="Prendi la playhead di Resolve">◎</button>
+          a <input id="to" placeholder="01:05:00:00"><button class="mini" id="ph_to" title="Prendi la playhead di Resolve">◎</button></div></div>
+      <div><label>&nbsp;</label><div class="hint" style="margin:0">Regola fissa: la stessa camera non va mai in onda due volte di fila.</div></div>
+    </div>
+    <button class="btn primary" id="bAnalyze">Analizza e prepara i cambi</button>
+    <div class="hint" id="ffw" hidden>⚠ ffmpeg non trovato: senza, si cambia solo sui tagli esistenti e a durata massima.</div>
+  </section>
+  <section class="card wide">
+    <div class="row2"><h2 style="margin:0">Anteprima dei cambi</h2><span class="spacer" style="flex:1"></span>
+      <span class="hint" style="margin:0">clic = porta lì la playhead di Resolve</span>
+      <button class="btn ghost" id="bShuffle" title="Un'altra scelta delle camere con le stesse regole">🎲 Rimescola</button></div>
+    <div class="prev" id="prevBox"><canvas id="cv"></canvas><div class="tip2" id="tip"></div></div>
+    <div class="share" id="share"></div>
+  </section>
+  <section class="card wide">
+    <h2><span class="n">3</span> Monta</h2>
+    <div class="cols">
+      <label class="opt"><button class="switch" id="disable_src"><i></i></button><span class="t"><b>Spegni le tracce camera originali</b>
+        <small>i cambi vanno su una traccia nuova in cima (solo se elabori tutta la timeline)</small></span></label>
+      <label class="opt"><button class="switch" id="copy"><i></i></button><span class="t"><b>Lavora su una copia della timeline</b>
+        <small>l'originale resta com'è</small></span></label>
+    </div>
+    <div class="row2"><button class="btn cta" id="bApply" style="flex:1">🎥 Monta i cambi camera</button>
+      <button class="btn" id="bUndo" title="Toglie la traccia PlutoniCamera e riaccende le camere">↺ Togli i cambi</button></div>
+    <div class="hint" style="margin:0">Tocca solo il video: l'audio della timeline resta esattamente com'è.</div>
+  </section>
+  <section class="card wide">
+    <div class="status"><span class="dot"></span><span id="status">Pronto.</span><span class="spacer"></span>
+      <button class="btn ghost" id="bQuit">Chiudi PlutoniCamera</button></div>
+    <pre class="log" id="log"></pre>
+  </section>
+</main>
+<div id="off" class="overlay" hidden><div class="card"><h2>PlutoniCamera è chiuso</h2><p>Riaprilo da PlutoniCut o da Workspace ▸ Scripts ▸ Utility.</p></div></div>
+<script>
+"use strict";
+//@@JS@@
+//@@UIJS@@
+const BUSY = {refresh: "Leggo la timeline…", analyze: "Ascolto la voce e leggo le camere…", apply: "Monto i cambi camera…",
+  undo: "Tolgo i cambi…", quit: "Chiudo…"};
+const BTN = {refresh: "bRefresh", analyze: "bAnalyze", apply: "bApply", undo: "bUndo", quit: "bQuit"};
+const COLORS = ["#8b5cf6", "#f59e0b", "#22c55e", "#0ea5e9", "#ef4444", "#ec4899", "#eab308", "#14b8a6"];
+const SW = ["t_pause", "t_speaker", "t_emph", "t_cuts", "disable_src", "copy"];
+let P = null, prio = {}, mic = {}, first = 0, planT = null, planAt = 0;
+const on = id => $(id).classList.contains("on");
+const color = c => COLORS[(ST.src.tracks.video.findIndex(t => t.i === c)) % COLORS.length];
+const vname = c => (ST.src.tracks.video.find(t => t.i === c) || {name: "V" + c}).name;
+function collect() {
+  clearTimeout(planT); planT = setTimeout(loadPlan, 350);
+  const o = Object.assign(sectionGet(), {cams: chosen("cams"), voice: chosen("voice"), prio: prio, mic: mic, first: first,
+    pause_min: +$("pause_min").value, min_shot: +$("min_shot").value, max_shot: +$("max_shot").value});
+  for (const k of SW) o[k] = on(k);
+  return o;
+}
+function camRows() {
+  const cams = chosen("cams"), au = ST.src.tracks.audio;
+  $("camrows").innerHTML = cams.map(c => "<div class='camrow' data-c='" + c + "'><span class='sw' style='background:" + color(c) + "'></span>" +
+    "<div><b>" + esc(vname(c)) + "</b><small>V" + c + "</small></div>" +
+    "<div class='stars' title='Priorità'>" + [1, 2, 3, 4, 5].map(k => "<button data-k='" + k + "'" + ((prio[c] || 3) >= k ? " class='on'" : "") + ">" + k + "</button>").join("") + "</div>" +
+    "<select title='Microfono della persona inquadrata'><option value='0'>— nessun microfono</option>" +
+    au.map(t => "<option value='" + t.i + "'" + ((mic[c] || 0) == t.i ? " selected" : "") + ">🎤 " + esc(t.name) + "</option>").join("") + "</select>" +
+    "<label class='first'><input type='radio' name='first'" + (first === c ? " checked" : "") + "> si parte da qui</label></div>").join("");
+  for (const row of $("camrows").children) {
+    const c = +row.dataset.c;
+    for (const b of row.querySelectorAll(".stars button")) b.onclick = () => { prio[c] = +b.dataset.k; camRows(); push(); };
+    row.querySelector("select").onchange = e => { mic[c] = +e.target.value; push(); };
+    row.querySelector("input[type=radio]").onchange = () => { first = c; push(); };
+  }
+}
+window.onChips = id => { if (id === "cams") camRows(); };
+async function loadPlan() {
+  try { P = await (await fetch("/api/plan", {cache: "no-store"})).json(); planAt = ST ? ST.anver : 0; draw(); } catch (e) {}
+}
+const cv = $("cv");
+function draw() {
+  const W = cv.clientWidth, H = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
+  const cs = getComputedStyle(document.body);
+  if (!P || !P.segs.length) {
+    g.fillStyle = cs.getPropertyValue("--muted"); g.font = "13px sans-serif"; g.textAlign = "center";
+    g.fillText("Scegli le camere e premi «Analizza e prepara i cambi».", W / 2, H / 2); $("share").innerHTML = ""; return;
+  }
+  const X = f => (f - P.a) / (P.b - P.a) * W, tot = {};
+  for (const [s, e, c] of P.segs) {
+    g.fillStyle = c ? color(c) : "rgba(128,128,128,.25)";
+    g.fillRect(X(s), 22, Math.max(1, X(e) - X(s) - 1), H - 44);
+    if (c) tot[c] = (tot[c] || 0) + e - s;
+  }
+  if (P.voice.length) {                         // la voce, piccola, sopra
+    g.fillStyle = cs.getPropertyValue("--muted");
+    for (let x = 0; x < W; x++) { const i = Math.floor(x / W * P.voice.length), v = Math.max(0, (P.voice[i] + 60) / 60);
+      g.fillRect(x, 18 - v * 16, 1, v * 16); }
+  }
+  const tc = {taglio: "#94a3b8", pausa: "#f59e0b", enfasi: "#ef4444", parla: "#22c55e"};
+  for (const [f, k] of P.trig) { g.fillStyle = tc[k] || "#fff"; g.fillRect(X(f), H - 18, 1.5, 12); }
+  const all = Object.values(tot).reduce((a, b) => a + b, 0) || 1;
+  $("share").innerHTML = "<span class='chip'><b>" + P.segs.filter(s => s[2]).length + "</b> inquadrature</span>" +
+    Object.entries(tot).map(([c, v]) => "<span class='chip'><i style='display:inline-block;width:10px;height:10px;border-radius:3px;background:" +
+      color(+c) + "'></i> " + esc(vname(+c)) + " <b>" + Math.round(100 * v / all) + "%</b></span>").join("") +
+    "<span class='chip'>tacche: <b style='color:#f59e0b'>pausa</b> · <b style='color:#22c55e'>chi parla</b> · <b style='color:#ef4444'>enfasi</b> · <b style='color:#94a3b8'>taglio</b></span>";
+}
+const fAt = px => P.a + px / cv.clientWidth * (P.b - P.a);
+const tcOf = f => { const fi = Math.round(P.fps); f = Math.round(f);
+  return [Math.floor(f / (fi * 3600)), Math.floor(f / (fi * 60)) % 60, Math.floor(f / fi) % 60, f % fi].map(x => String(x).padStart(2, "0")).join(":"); };
+cv.addEventListener("pointermove", e => { if (!P || !P.segs.length) return; const f = fAt(e.offsetX), sg = P.segs.find(s => s[0] <= f && f < s[1]), t = $("tip");
+  t.style.display = "block"; t.style.left = Math.min(e.offsetX + 12, cv.clientWidth - 170) + "px"; t.style.top = "26px";
+  t.textContent = tcOf(f) + " · " + (sg && sg[2] ? vname(sg[2]) : "nessuna camera"); });
+cv.addEventListener("pointerleave", () => { $("tip").style.display = "none"; });
+cv.addEventListener("click", e => { if (P && P.segs.length) cmd("goto", tcOf(fAt(e.offsetX)), true); });
+window.addEventListener("resize", draw);
+$("bShuffle").onclick = () => { cmd("shuffle", null, true); setTimeout(loadPlan, 400); };
+function init() {
+  const s = ST.set;
+  sectionUI(); sectionSync(s);
+  prio = Object.fromEntries(Object.entries(s.prio || {}).map(([k, v]) => [+k, v]));
+  mic = Object.fromEntries(Object.entries(s.mic || {}).map(([k, v]) => [+k, v]));
+  first = s.first || 0;
+  for (const k of SW) { $(k).classList.toggle("on", !!s[k]); $(k).onclick = e => { e.preventDefault(); $(k).classList.toggle("on"); push(); }; }
+  for (const k of ["pause_min", "min_shot", "max_shot"]) { $(k).value = s[k]; $(k).addEventListener("change", () => push()); }
+  seenPh = ST.playhead.seq;
+}
+let lastTr = "";
+function render() {
+  const s = ST.src;
+  $("tlName").textContent = s.ok ? s.name : "nessuna timeline aperta";
+  $("tlInfo").textContent = s.ok ? s.tracks.video.length + " tracce video · " + s.tracks.audio.length + " tracce audio" +
+    (s.done ? " · ci sono già cambi PlutoniCamera" : "") : "apri una timeline in Resolve";
+  const sig = JSON.stringify(s.tracks) + ST.set.cams + "|" + ST.set.voice;
+  if (sig !== lastTr) { lastTr = sig; chips("cams", s.tracks.video.filter(t => t.name !== "PlutoniCamera"), ST.set.cams);
+    chips("voice", s.tracks.audio, ST.set.voice); camRows(); }
+  $("ffw").hidden = ST.ffmpeg;
+  $("bAnalyze").textContent = ST.fresh ? "↻ Analizza di nuovo" : "Analizza e prepara i cambi";
+  if (ST.anver !== planAt) loadPlan();
+  if (!ST.busy) $("bUndo").disabled = !s.done;
+  playheadIn();
+}
+start();
+</script>
+</body>
+</html>
