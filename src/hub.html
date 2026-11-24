@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>PlutoniCut</title>
+<link rel="icon" id="fav" href="/logo">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rubik+Mono+One&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/*@@CSS@@*/
+html, body { height: 100%; }
+body { display: grid; grid-template-columns: 252px 1fr; overflow: hidden; }
+.side { display: flex; flex-direction: column; gap: 4px; padding: 18px 12px 14px; min-height: 0;
+  background: var(--card); border-right: var(--bd); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+.brandbox { display: flex; align-items: center; gap: 10px; padding: 0 6px 14px; }
+.brandbox img { height: 40px; width: auto; filter: var(--logofx); }
+.brandbox .name { font: var(--titlefont); font-size: 18px; letter-spacing: var(--titlels); background: var(--titlebg);
+  -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1; }
+.brandbox .tag { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.navlbl { font: var(--hfont); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--head);
+  padding: 14px 10px 6px; }
+.nav { all: unset; cursor: pointer; display: grid; grid-template-columns: 38px 1fr; gap: 10px; align-items: center;
+  padding: 8px 10px; border-radius: calc(var(--r) - 4px); border: 1px solid transparent; transition: background .15s; }
+.nav:hover { background: var(--seg-h); }
+.nav.on { background: var(--accent-bg); color: var(--onaccent); box-shadow: var(--onshadow); }
+body.look-labs .nav.on { border: var(--bd2); }
+.nav b { display: block; font-size: 14px; font-weight: 700; }
+.nav small { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav.on small { color: inherit; opacity: .8; }
+.nav .txt { min-width: 0; }
+.ico { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: #fff; position: relative;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+body.look-labs .ico { box-shadow: 2px 2px 0 #0E0418; border: 2px solid #0E0418; }
+.ico svg { width: 21px; height: 21px; }
+.ico.home { background: var(--seg); color: var(--fg); box-shadow: none; border: var(--bd2); }
+.nav.on .ico.home { background: rgba(255,255,255,.2); color: inherit; }
+.ico i { position: absolute; right: -3px; top: -3px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--bg);
+  background: var(--accent); display: none; }
+.busy .ico i { display: block; animation: pulse 1s infinite; }
+.err .ico i { display: block; background: #ef4444; animation: none; }
+.sidefoot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 4px 0; border-top: var(--bd2); }
+.sidefoot .looks { justify-content: space-between; }
+.sidefoot .looks span { display: none; }
+.sidefoot .looks button { flex: 1; text-align: center; padding: 6px 4px; }
+.pin { width: 100%; text-align: center; box-sizing: border-box; }
+.ver { font-size: 10.5px; color: var(--muted); text-align: center; }
+.main { position: relative; min-width: 0; min-height: 0; }
+.view { position: absolute; inset: 0; display: none; }
+.view.on { display: block; }
+iframe.view { width: 100%; height: 100%; border: 0; background: transparent; }
+#home { overflow: auto; padding: 34px 38px 40px; }
+.hero h1 { margin: 0; font: var(--titlefont); font-size: 38px; letter-spacing: var(--titlels); background: var(--titlebg);
+  -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1.1; }
+.hero p { margin: 8px 0 0; color: var(--muted); font-size: 15px; max-width: 640px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; margin-top: 28px; }
+.tcard { background: var(--card); border: var(--bd); border-radius: var(--r); padding: 20px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 12px; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  cursor: pointer; transition: transform .15s; min-width: 0; }
+.tcard:hover { transform: translateY(-3px); }
+.tcard .top2 { display: flex; align-items: center; gap: 14px; }
+.tcard .ico { width: 54px; height: 54px; border-radius: 15px; }
+.tcard .ico svg { width: 28px; height: 28px; }
+.tcard h3 { margin: 0; font: var(--titlefont); font-size: 22px; letter-spacing: var(--titlels); line-height: 1.1; }
+.tcard .tg { font-size: 12.5px; color: var(--head); font-weight: 700; margin-top: 3px; }
+.tcard p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; flex: 1; }
+.tcard .st { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; min-height: 1.4em; }
+.tcard .st .d { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex: none; }
+.tcard.busy .st .d { background: var(--accent); animation: pulse 1s infinite; }
+.tcard.err .st .d { background: #ef4444; }
+.tcard .go { align-self: flex-start; }
+.tcard.soon { border-style: dashed; box-shadow: none; cursor: default; opacity: .8; }
+.tcard.soon:hover { transform: none; }
+.tcard.soon .ico { background: var(--seg); color: var(--muted); border: var(--bd2); box-shadow: none; }
+.tips { margin-top: 26px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.tip { font-size: 13px; color: var(--muted); padding: 12px 14px; border: var(--bd2); border-radius: calc(var(--r) - 6px); background: var(--tile); }
+.tip b { color: var(--fg); }
+pre.err { white-space: pre-wrap; font-size: 11px; max-height: 120px; overflow: auto; color: #ef4444; margin: 0; }
+@keyframes pulse { 50% { opacity: .35; } }
+.intro { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.intro[hidden] { display: none; }
+.icard { width: min(560px, 100%); background: var(--card); border: var(--bd); border-radius: var(--r); box-shadow: var(--shadow);
+  padding: 26px 28px; display: flex; flex-direction: column; gap: 14px; backdrop-filter: var(--blur); }
+body.look-labs .icard, body.look-studio .icard { background: var(--bg); }
+.icard .top2 { display: flex; align-items: center; gap: 14px; }
+.icard .ico { width: 58px; height: 58px; border-radius: 16px; }
+.icard .ico svg { width: 30px; height: 30px; }
+.icard h2 { margin: 0; font: var(--titlefont); font-size: 28px; letter-spacing: var(--titlels); line-height: 1.05; background: var(--titlebg);
+  -webkit-background-clip: text; background-clip: text; color: transparent; text-transform: none; }
+.icard .tg { font-size: 13px; color: var(--head); font-weight: 700; margin-top: 4px; }
+.icard .what { margin: 0; font-size: 15px; line-height: 1.55; }
+.icard ol { margin: 0; padding: 0; list-style: none; counter-reset: s; display: flex; flex-direction: column; gap: 9px; }
+.icard li { counter-increment: s; display: grid; grid-template-columns: 26px 1fr; gap: 10px; font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+.icard li::before { content: counter(s); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent-bg); color: var(--onaccent); font-weight: 800; font-size: 12px; }
+.icard .row2 { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.icard .row2 label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; margin-right: auto; }
+.infob { display: none; margin: 10px 4px 0; }
+.infob.on { display: block; }
+@media (max-width: 800px) { body { grid-template-columns: 76px 1fr; } .nav { grid-template-columns: 38px; } .nav .txt, .brandbox div,
+  .navlbl, .sidefoot .looks span, .ver { display: none; } .looks { flex-direction: column; } }
+</style>
+</head>
+<body class="look-studio" data-look="studio">
+<div class="bgfx"></div>
+<aside class="side">
+  <div class="brandbox"><img src="/logo" alt=""><div><div class="name">PlutoniCut</div><div class="tag">strumenti Plutonic per Resolve</div></div></div>
+  <button class="nav" data-id="home"><span class="ico home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span>
+    <span class="txt"><b>Home</b><small>tutti gli strumenti</small></span></button>
+  <div class="navlbl">Strumenti</div>
+  <div id="navTools"></div>
+  <button class="btn ghost infob" id="bInfo" title="Rivedi la scheda iniziale di questo strumento">ⓘ Come si usa</button>
+  <div class="sidefoot">
+    <div class="looks" title="Aspetto di tutti gli strumenti"><span>Aspetto</span>
+      <button data-look="studio">Studio</button><button data-look="labs">Labs</button><button data-look="notte">Notte</button></div>
+    <button class="pin" id="pin" title="Tiene PlutoniCut davanti a Resolve anche quando clicchi nel Media Pool o nella timeline">📌 Sempre davanti</button>
+    <button class="btn ghost" id="bQuit" title="Chiude PlutoniCut e tutti gli strumenti">Chiudi PlutoniCut</button>
+    <div class="ver" id="ver"></div>
+    <span id="status" hidden></span><pre id="log" hidden></pre>
+  </div>
+</aside>
+<main class="main" id="main">
+  <div class="intro" id="intro" hidden><div class="icard">
+    <div class="top2" id="iTop"></div>
+    <p class="what" id="iWhat"></p>
+    <ol id="iSteps"></ol>
+    <div class="row2"><label><input type="checkbox" id="iSkip"> Non mostrarla più</label>
+      <button class="btn primary" id="iGo">Inizia →</button></div>
+  </div></div>
+  <section class="view on" id="home">
+    <div class="hero"><h1>I tuoi strumenti</h1>
+      <p>Tutti gli strumenti Plutonic in un'unica finestra. Scegline uno a sinistra o qui sotto: passando
+        dall'uno all'altro ognuno resta esattamente com'era.</p></div>
+    <div class="cards" id="cards"></div>
+    <div class="tips">
+      <div class="tip"><b>📌 Sempre davanti</b> — PlutoniCut resta sopra Resolve anche quando lavori nel Media Pool o in timeline.</div>
+      <div class="tip"><b>Un solo aspetto</b> — Studio, Labs o Notte vale per tutti gli strumenti, editor dei marker compreso.</div>
+      <div class="tip"><b>Nuovi strumenti</b> — arriveranno qui, nello stesso posto: basta aggiornare PlutoniCut.</div>
+    </div>
+  </section>
+</main>
+<div id="off" class="overlay" hidden><div class="card"><h2>PlutoniCut è chiuso</h2>
+  <p>Per riaprirlo, in DaVinci Resolve: <b>Workspace ▸ Scripts ▸ Utility ▸ PlutoniCut</b>.</p></div></div>
+<script>
+"use strict";
+//@@JS@@
+const BUSY = {quit: "Chiudo…"};
+const BTN = {quit: "bQuit"};
+const ICONS = {
+  beatonic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 10v4M7 6v12M11 9v6M15 4v16M19 8v8"/></svg>',
+  plutonicedit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></svg>',
+  subfinder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 9h6M7.5 12h4"/></svg>',
+  soon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'};
+const collect = () => ({tool: cur});
+let cur = "home", frames = {}, built = false;
+const icon = (t, cls) => "<span class='ico " + (cls || "") + "' style='background:" + t.color + "'>" + (ICONS[t.id] || ICONS.soon) + "<i></i></span>";
+
+function build() {                            // elenco a sinistra e schede della Home
+  built = true;
+  $("navTools").innerHTML = ST.tools.map(t => "<button class='nav' data-id='" + t.id + "'>" + icon(t) +
+    "<span class='txt'><b>" + esc(t.name) + "</b><small data-st='" + t.id + "'>" + esc(t.tag) + "</small></span></button>").join("");
+  $("cards").innerHTML = ST.tools.map(t => "<div class='tcard' data-id='" + t.id + "'><div class='top2'>" + icon(t) +
+    "<div><h3>" + esc(t.name) + "</h3><div class='tg'>" + esc(t.tag) + "</div></div></div><p>" + esc(t.desc) + "</p>" +
+    "<div class='st'><span class='d'></span><span data-cst='" + t.id + "'></span></div>" +
+    (t.error ? "<pre class='err'>" + esc(t.error) + "</pre>" : "") +
+    "<button class='btn primary go'>Apri " + esc(t.name) + " →</button></div>").join("") +
+    "<div class='tcard soon'><div class='top2'>" + icon({id: "soon", color: ""}) + "<div><h3>Prossimamente</h3>" +
+    "<div class='tg'>nuovi strumenti</div></div></div><p>Qui arriveranno i prossimi strumenti e le nuove funzioni Plutonic, " +
+    "tutti nello stesso posto.</p></div>";
+  for (const el of document.querySelectorAll(".nav[data-id], .tcard[data-id]")) el.onclick = () => open(el.dataset.id);
+}
+function open(id) {
+  const t = ST.tools.find(x => x.id === id);
+  if (id !== "home" && (!t || !t.port)) id = "home";
+  cur = id;
+  for (const el of document.querySelectorAll(".nav")) el.classList.toggle("on", el.dataset.id === id);
+  if (id !== "home" && !frames[id]) {          // ogni strumento si carica la prima volta che lo apri
+    const f = document.createElement("iframe");
+    f.className = "view"; f.src = "http://127.0.0.1:" + t.port + "/?embed=1"; f.title = t.name;
+    f.onload = () => f.contentWindow.postMessage({look: document.body.dataset.look}, "*");
+    $("main").appendChild(f); frames[id] = f;
+  }
+  for (const el of document.querySelectorAll(".view")) el.classList.remove("on");
+  $("bInfo").classList.toggle("on", id !== "home");
+  if (id !== "home" && !shown.has(id) && !(ST.set.seen || []).includes(id)) showIntro(t); else $("intro").hidden = true;
+  (id === "home" ? $("home") : frames[id]).classList.add("on");
+  document.title = "PlutoniCut";            // (titolo fisso: serve al "sempre davanti")
+  push();
+}
+let shown = new Set();
+function showIntro(t) {                       // scheda iniziale: cosa fa lo strumento, in poche righe
+  shown.add(t.id);
+  $("iTop").innerHTML = icon(t) + "<div><h2>" + esc(t.name) + "</h2><div class='tg'>" + esc(t.tag) + "</div></div>";
+  $("iWhat").textContent = t.intro;
+  $("iSteps").innerHTML = t.steps.map(x => "<li><span>" + esc(x) + "</span></li>").join("");
+  $("iSkip").checked = (ST.set.seen || []).includes(t.id);
+  $("intro").hidden = false;
+  $("iGo").focus();
+}
+$("iGo").onclick = () => {
+  const seen = new Set(ST.set.seen || []);
+  if ($("iSkip").checked) seen.add(cur); else seen.delete(cur);
+  ST.set.seen = [...seen];
+  push({seen: ST.set.seen});
+  $("intro").hidden = true;
+};
+$("bInfo").onclick = () => { const t = ST.tools.find(x => x.id === cur); if (t) showIntro(t); };
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("intro").hidden) $("iGo").click(); });
+function init() {
+  build();
+  open(ST.set.tool || "home");
+}
+function render() {
+  $("ver").textContent = "PlutoniCut " + ST.version;
+  for (const t of ST.tools) {
+    const busy = !!t.busy, txt = t.error ? "non si è caricato" : (busy ? "al lavoro…" : (t.status || "pronto"));
+    for (const el of document.querySelectorAll("[data-id='" + t.id + "']")) {
+      el.classList.toggle("busy", busy); el.classList.toggle("err", !!t.error);
+    }
+    const s = document.querySelector("[data-st='" + t.id + "']");
+    if (s) s.textContent = busy || t.error ? txt : t.tag;
+    const c = document.querySelector("[data-cst='" + t.id + "']");
+    if (c) c.textContent = txt;
+  }
+}
+// l'aspetto scelto qui vale anche dentro gli strumenti
+for (const b of document.querySelectorAll(".looks button")) b.addEventListener("click", () => {
+  for (const f of Object.values(frames)) try { f.contentWindow.postMessage({look: b.dataset.look}, "*"); } catch (e) {}
+});
+start();
+</script>
+</body>
+</html>
