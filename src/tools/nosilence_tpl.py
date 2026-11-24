@@ -198,11 +198,13 @@ def on_apply(ev=None):
         set_log(err); return
     before = (b - a) / fps
     kept = sum(k1 - k0 for k0, k1 in keep) / fps
+    edges = [a] + [x for k in keep for x in k] + [b]
+    n_sil = sum(1 for i in range(0, len(edges), 2) if edges[i + 1] > edges[i])
     what = {"remove": "tolti", "keep": "tagliati e lasciati (arancioni)", "mute": "messi muti",
             "gaps": "tolti lasciando lo spazio"}[mode]
     set_log("Creata «%s»: %d silenzi %s, %s su %s (%d%%). Durata del tratto: %s → %s.%s\n\n"
             "L'originale «%s» è intatta." % (
-                new_tl.GetName(), max(0, len(keep) - 1), what, fmt_dur(before - kept), fmt_dur(before),
+                new_tl.GetName(), n_sil, what, fmt_dur(before - kept), fmt_dur(before),
                 round(100 * (before - kept) / max(before, 0.01)), fmt_dur(before),
                 fmt_dur(kept if mode in ("remove",) else before), (" " + err) if err else "", tl.GetName()))
     set_status("Fatto: «%s»." % new_tl.GetName())

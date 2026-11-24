@@ -310,6 +310,43 @@ def new_timeline(mp, name):
     return tl
 
 
+def _item_key(it):
+    try:
+        return it.GetUniqueId()
+    except Exception:
+        return id(it)
+
+
+def _link_groups(items):
+    """Gruppi di clip collegate (video + il suo audio) nella timeline sorgente."""
+    group = {}
+    for it, _ in items:
+        k = _item_key(it)
+        if k in group:
+            continue
+        group[k] = k
+        try:
+            linked = it.GetLinkedItems() or []
+        except Exception:
+            linked = []
+        for o in linked:
+            group.setdefault(_item_key(o), k)
+    return group
+
+
+def _relink(tl, pairs, group):
+    """Ricollega fra loro i pezzi nuovi che vengono da clip collegate nell'originale."""
+    by = {}
+    for src, new in pairs:
+        by.setdefault(group.get(_item_key(src), _item_key(src)), []).append(new)
+    for items in by.values():
+        if len(items) > 1:
+            try:
+                tl.SetClipsLinked(items, True)
+            except Exception:
+                pass
+
+
 def rebuild(src_tl, segs, name, keep_gaps=False, jl=(0, 0), progress=None):
     """Timeline NUOVA con i tratti 'segs' della timeline sorgente, tutte le tracce video e
     audio allineate al fotogramma (anche clip a frame rate diverso dalla timeline).
@@ -345,6 +382,7 @@ def rebuild(src_tl, segs, name, keep_gaps=False, jl=(0, 0), progress=None):
         pass
     ns = new_tl.GetStartFrame()
     rebuild_audio = bool(aitems)
+    group = _link_groups(vitems + aitems)
     bounds = set()
     for it, _ in vitems + aitems:
         bounds.add(it.GetStart())
@@ -359,9 +397,9 @@ def rebuild(src_tl, segs, name, keep_gaps=False, jl=(0, 0), progress=None):
         first = None
         for x, y in zip(pts, pts[1:]):
             D = y - x
-            vp = [(ti, piece_of(it, x, D, fps, ti, 1 if rebuild_audio else 0))
+            vp = [(ti, it, piece_of(it, x, D, fps, ti, 1 if rebuild_audio else 0))
                   for it, ti in vitems if it.GetStart() <= x and it.GetEnd() >= y]
-            vp = sorted([p for p in vp if p[1]], key=lambda p: p[0])
+            vp = sorted([p for p in vp if p[2]], key=lambda p: p[0])
             ap = []
             if rebuild_audio and opt.get("audio", True):
                 ap = [(it, ti, piece_of(it, x, D, fps, ti, 2)) for it, ti in aitems
@@ -370,8 +408,9 @@ def rebuild(src_tl, segs, name, keep_gaps=False, jl=(0, 0), progress=None):
             if not vp and not ap:
                 continue
             rec = ns + (x - t0) if keep_gaps else ns + cursor
+            pairs = []                            # (clip sorgente, pezzo nuovo): per ricollegarli
             if vp:                                # ancora: video della traccia piu' bassa
-                anchor = vp[0][1]
+                anchor = vp[0][2]
                 anchor.pop("_k", None)
                 if keep_gaps:
                     anchor["recordFrame"] = rec
@@ -387,16 +426,18 @@ def rebuild(src_tl, segs, name, keep_gaps=False, jl=(0, 0), progress=None):
                 except Exception:
                     dur = D
                 made = [got[0]]
-                others = [v for _, v in vp[1:]]
+                pairs.append((vp[0][1], got[0]))
+                others = [(src, v) for _, src, v in vp[1:]]
             else:                                 # solo audio in questo tratto
                 dur = D
                 made, others = [], []
-            for info in others:
+            for src, info in others:
                 info["recordFrame"] = rec
                 info["endFrame"] = info["startFrame"] + src_len(dur, info.pop("_k"))
                 try:
-                    g = mp.AppendToTimeline([info])
-                    made += g or []
+                    g = mp.AppendToTimeline([info]) or []
+                    made += g
+                    pairs += [(src, m) for m in g]
                 except Exception:
                     pass
             for it, ti, info in ap:
@@ -411,10 +452,12 @@ def rebuild(src_tl, segs, name, keep_gaps=False, jl=(0, 0), progress=None):
                 if use_jl and n % 2:
                     info["trackIndex"] = ti + na      # pezzi alterni: l'audio si sovrappone
                 try:
-                    g = mp.AppendToTimeline([info])
-                    made += g or []
+                    g = mp.AppendToTimeline([info]) or []
+                    made += g
+                    pairs += [(it, m) for m in g]
                 except Exception:
                     pass
+            _relink(new_tl, pairs, group)
             if opt.get("color"):
                 for m in made:
                     try:
