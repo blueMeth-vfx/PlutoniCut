@@ -23,9 +23,9 @@ perdere niente: ognuno resta esattamente com'era.
 
 | Strumento | Cosa fa |
 |---|---|
-| **BeaTonic** | monta in automatico le clip a tempo di musica: quattro montaggi pronti, editor dei marker, canzone adattata alla durata |
-| **PlutonicEdit** | sgrossa le interviste: tieni solo gli in/out che scrivi (o prendi dalla playhead), multicam e audio compresi, l'originale non si tocca |
-| **SubFinder** | cerca una parola nei sottotitoli e porta lì la playhead |
+| **[BeaTonic](https://github.com/blueMeth-vfx/BeaTonic)** | monta in automatico le clip a tempo di musica: quattro montaggi pronti, editor dei marker, canzone adattata alla durata |
+| **[PlutonicEdit](https://github.com/blueMeth-vfx/PlutoniEdit)** | sgrossa le interviste: tieni solo gli in/out che scrivi (o prendi dalla playhead), multicam e audio compresi, l'originale non si tocca |
+| **[SubFinder](https://github.com/blueMeth-vfx/SubFinder)** | cerca una parola nei sottotitoli e porta lì la playhead |
 
 ![PlutoniCut](docs/casa_notte.png)
 
@@ -66,7 +66,7 @@ Un solo file contiene tutti gli strumenti: non servono BeaTonic.py, SubFinder.py
 ## Per chi sviluppa
 
 Gli strumenti restano progetti separati (ognuno funziona anche da solo):
-[BeaTonic](https://github.com/blueMeth-vfx/BeaTonic), PlutonicEdit, [SubFinder](https://github.com/blueMeth-vfx/SubFinder).
+[BeaTonic](https://github.com/blueMeth-vfx/BeaTonic), [PlutonicEdit](https://github.com/blueMeth-vfx/PlutoniEdit), [SubFinder](https://github.com/blueMeth-vfx/SubFinder).
 `build.py` li prende dalle loro cartelle e li include, compressi, in `resolve_scripts/PlutoniCut.py`
 insieme alla casa (`src/hub_tpl.py` + `src/hub.html`).
 
