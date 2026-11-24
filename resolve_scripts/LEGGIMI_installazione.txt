@@ -22,8 +22,9 @@ Serve DaVinci Resolve STUDIO (nella versione gratuita lo scripting non c'e').
 3) Apri il plugin da:
      Workspace > Scripts > Utility > PlutoniCut
 
-Si apre una finestra con tutti gli strumenti Plutonic (BeaTonic, PlutonicEdit,
-SubFinder): scegline uno a sinistra. Un solo file li contiene tutti.
+Si apre una finestra con tutti gli strumenti Plutonic (NoSilence, PlutoniCamera,
+ZoomTonic, BeaTonic, PlutonicEdit, SubFinder): scegline uno a sinistra.
+Un solo file li contiene tutti. Serve ffmpeg (es. in C:\ffmpeg\bin).
 
 Il logo (plutonic_logo.png) serve per l'icona della finestra e della barra:
 se manca, il plugin funziona lo stesso.

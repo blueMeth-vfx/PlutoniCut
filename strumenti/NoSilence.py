@@ -1146,6 +1146,7 @@ html.embed .grid { padding-top: 18px; }
 .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .btn.cta { font-size: 20px; padding: 18px; }
 @media (max-width: 860px) { .cols, .cols3 { grid-template-columns: 1fr; } }
+.rng[hidden], .hint[hidden] { display: none !important; }
 
 .nums4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .nums4 > div { display: flex; flex-direction: column; gap: 6px; }

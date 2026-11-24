@@ -976,7 +976,7 @@ def make_plan():
         first = pick(a, 0) or first
     segs, cur, last = [], first, a
     for f, kind, pref in trig + [(b, "fine", 0)]:
-        while f - last > mx and last + mx < b:      # inquadratura troppo lunga: si cambia
+        while f - last > mx and last + mx < b - mn:   # inquadratura troppo lunga: si cambia
             nxt = pick(last + mx, cur)
             if not nxt:
                 break
@@ -984,7 +984,7 @@ def make_plan():
             cur, last = nxt, last + mx
         if kind == "fine":
             break
-        if f - last < mn or f >= b:
+        if f - last < mn or b - f < mn:              # niente inquadrature piu' corte del minimo
             continue
         if kind == "parla" and pref == cur:
             continue
@@ -1311,6 +1311,7 @@ html.embed .grid { padding-top: 18px; }
 .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .btn.cta { font-size: 20px; padding: 18px; }
 @media (max-width: 860px) { .cols, .cols3 { grid-template-columns: 1fr; } }
+.rng[hidden], .hint[hidden] { display: none !important; }
 
 .camrows { display: flex; flex-direction: column; gap: 8px; }
 .camrow { display: grid; grid-template-columns: 22px 1.2fr 1.6fr 1.2fr 110px; gap: 12px; align-items: center; padding: 10px 12px;

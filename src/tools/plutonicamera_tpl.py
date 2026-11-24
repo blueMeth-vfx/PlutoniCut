@@ -233,7 +233,7 @@ def make_plan():
         first = pick(a, 0) or first
     segs, cur, last = [], first, a
     for f, kind, pref in trig + [(b, "fine", 0)]:
-        while f - last > mx and last + mx < b:      # inquadratura troppo lunga: si cambia
+        while f - last > mx and last + mx < b - mn:   # inquadratura troppo lunga: si cambia
             nxt = pick(last + mx, cur)
             if not nxt:
                 break
@@ -241,7 +241,7 @@ def make_plan():
             cur, last = nxt, last + mx
         if kind == "fine":
             break
-        if f - last < mn or f >= b:
+        if f - last < mn or b - f < mn:              # niente inquadrature piu' corte del minimo
             continue
         if kind == "parla" and pref == cur:
             continue
