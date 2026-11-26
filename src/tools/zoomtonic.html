@@ -74,7 +74,7 @@
         <div><label>Zoom massimo</label><div class="slider"><input type="range" id="zmax" min="102" max="200" step="1"><output id="zmaxV"></output></div></div>
         <div><label>Stili (se ne scegli più d'uno, si alternano)</label>
           <div class="styles"><button class="tchip" data-s="smooth"><b>Morbido</b><small>entra ed esce dolce</small></button>
-            <button class="tchip" data-s="jump"><b>Scatto</b><small>di colpo, senza animazione</small></button>
+            <button class="tchip" data-s="jump"><b>Scatto</b><small>sui tagli, clip intera (Inspector)</small></button>
             <button class="tchip" data-s="snap"><b>Rapido</b><small>entra veloce, poi fermo</small></button></div></div>
         <label class="opt"><button class="switch" id="drift"><i></i></button><span class="t"><b>Movimento di camera</b><small>leggera deriva a mano durante lo zoom</small></span></label>
       </div>
@@ -208,7 +208,7 @@ function render() {
   $("ffw").hidden = ST.ffmpeg;
   $("bAnalyze").textContent = ST.fresh ? "↻ Analizza di nuovo" : "Analizza e prepara gli zoom";
   $("zInfo").textContent = s.zoomed ? "Su questa traccia " + s.zoomed + " clip hanno già gli zoom ZoomTonic: applicando di nuovo vengono rifatti."
-    : "Gli zoom vanno in una composizione Fusion «ZoomTonic» su ogni clip: solo il video cambia, l'audio resta com'è.";
+    : "Gli scatti vanno nello Zoom dell'Inspector della clip, quelli animati in una composizione Fusion «ZoomTonic»: solo il video cambia, l'audio resta com'è.";
   if (ST.anver !== planAt) loadPlan();
   if (!ST.busy) $("bUndo").disabled = !s.zoomed;
   playheadIn();

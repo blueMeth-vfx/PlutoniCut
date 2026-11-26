@@ -94,14 +94,89 @@ def _apply_settings(d, save=True):
         _save_settings()
 
 
+INSP_FILE = os.path.join(_PL, "zoomtonic_inspector.json")
+INSP_KEYS = ("ZoomX", "ZoomY", "Pan", "Tilt")
+
+
+def _insp_load():
+    try:
+        with open(INSP_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _insp_save(d):
+    try:
+        os.makedirs(_PL, exist_ok=True)
+        with open(INSP_FILE + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(d, f)
+        os.replace(INSP_FILE + ".tmp", INSP_FILE)
+    except Exception:
+        pass
+
+
+def _item_id(it):
+    try:
+        return it.GetUniqueId()
+    except Exception:
+        return ""
+
+
+def _insp_mine(tl, ti):
+    """Clip della traccia a cui ZoomTonic ha messo lo zoom nell'Inspector: {id: valori originali}."""
+    saved = _insp_load().get(tl_key(tl), {})
+    ids = {_item_id(it) for it in tl.GetItemListInTrack("video", ti) or []}
+    return {k: v for k, v in saved.items() if k in ids}
+
+
+def _insp_restore(tl, ti):
+    """Rimette zoom e posizione originali nelle clip che ZoomTonic aveva stretto."""
+    allv = _insp_load()
+    saved = allv.get(tl_key(tl), {})
+    n = 0
+    for it in tl.GetItemListInTrack("video", ti) or []:
+        orig = saved.pop(_item_id(it), None)
+        if orig:
+            for k, v in zip(INSP_KEYS, orig):
+                it.SetProperty(k, v)
+            n += 1
+    allv[tl_key(tl)] = saved
+    _insp_save(allv)
+    return n
+
+
+def _insp_zoom(tl, it, z, w, h):
+    """Scatto su tutta la clip: Zoom dell'Inspector moltiplicato per z, posizione spostata
+    perche' il punto d'ancoraggio resti fermo (mai bordi neri: lo spostamento e' sempre
+    meno di meta' dell'ingrandimento)."""
+    allv = _insp_load()
+    saved = allv.setdefault(tl_key(tl), {})
+    iid = _item_id(it)
+    orig = saved.get(iid) or [float(it.GetProperty(k) or (1.0 if k.startswith("Zoom") else 0.0)) for k in INSP_KEYS]
+    zx, zy, pan, tilt = orig
+    ok = it.SetProperty("ZoomX", round(zx * z, 4)) and it.SetProperty("ZoomY", round(zy * z, 4))
+    it.SetProperty("Pan", round(pan * z - (SET["ax"] - 0.5) * w * (z - 1), 2))
+    it.SetProperty("Tilt", round(tilt * z - (0.5 - SET["ay"]) * h * (z - 1), 2))
+    if ok:
+        saved[iid] = orig
+        _insp_save(allv)
+    return bool(ok)
+
+
 def _zoomed(tl, ti):
     n = 0
     for it in tl.GetItemListInTrack("video", ti) or []:
-        try:
+        try:                             # (dopo «Togli» la composizione resta, vuota: non conta)
             if COMP in (it.GetFusionCompNameList() or []):
-                n += 1
+                comp = it.GetFusionCompByName(COMP)
+                n += bool(comp and comp.FindTool(COMP))
         except Exception:
             pass
+    try:
+        n += len(_insp_mine(tl, ti))
+    except Exception:
+        pass
     return n
 
 
@@ -264,7 +339,16 @@ def make_plan():
         if end - f < int(0.5 * fps):
             continue
         z = rnd.uniform(SET["zmin"], SET["zmax"]) / 100.0
-        zooms.append((f, end, round(z, 3), rnd.choice(SET["styles"]), kind))
+        style = rnd.choice(SET["styles"])
+        if style == "jump":              # scatto = tutta la clip, da un taglio all'altro (Inspector)
+            if f == clip[0] and clip[0] not in pre and clip[1] <= b:
+                end = clip[1]
+            else:                        # a meta' clip uno scatto vorrebbe un taglio: altro stile o niente
+                anim = [x for x in SET["styles"] if x != "jump"]
+                if not anim:
+                    continue
+                style = anim[int(f) % len(anim)]
+        zooms.append((f, end, round(z, 3), style, kind))
         free = end + int(gap * fps)
     zooms.sort()
     PLAN.update(ver=PLAN["ver"] + 1, zooms=zooms)
@@ -324,10 +408,16 @@ def on_apply(ev=None):
     if not zooms:
         set_log("Nessuno zoom con queste regole: prova un ritmo più energico."); return
     fps = tl_fps(tl)
+    set_status("Tolgo gli zoom di prima…")
+    _remove_all(tl, SET["track"])                  # si rifà da capo: niente zoom doppi
+    try:
+        W, H = float(tl.GetSetting("timelineResolutionWidth")), float(tl.GetSetting("timelineResolutionHeight"))
+    except Exception:
+        W, H = 1920.0, 1080.0
     items = tl.GetItemListInTrack("video", SET["track"]) or []
     piv = {1: SET["ax"], 2: 1.0 - SET["ay"]}       # Fusion: y dal basso
     rnd = random.Random(SET["seed"] + 7)
-    done, clips, skipped = 0, 0, 0
+    done, clips, skipped, n_insp = 0, 0, 0, 0
     for n, it in enumerate(items):
         s, e = it.GetStart(), it.GetEnd()
         mine = [z for z in zooms if s <= z[0] < e]
@@ -335,6 +425,16 @@ def on_apply(ev=None):
             continue
         if n % 5 == 0:
             set_status("Metto gli zoom: clip %d di %d…" % (n + 1, len(items)))
+        whole = [z for z in mine if z[3] == "jump" and z[0] <= s and z[1] >= e]
+        if whole:                                  # scatto su tutta la clip: Inspector, niente Fusion
+            if _insp_zoom(tl, it, whole[0][2], W, H):
+                done += 1; clips += 1; n_insp += 1
+            else:
+                skipped += 1
+            continue
+        mine = [z for z in mine if z[3] != "jump"]
+        if not mine:
+            continue
         comp, tf = _zoom_tool(it)
         if not tf:
             skipped += 1
@@ -369,11 +469,14 @@ def on_apply(ev=None):
         comp.Unlock()
         done += len(mine)
         clips += 1
-    set_log("Fatto: %d zoom su %d clip della traccia V%d di «%s».%s\n\nSolo il video è cambiato: l'audio è "
-            "intatto. Gli zoom sono nella composizione Fusion «%s» di ogni clip (modificabili nella pagina "
-            "Fusion); «Togli gli zoom» li rimuove tutti." % (
+    set_log("Fatto: %d zoom su %d clip della traccia V%d di «%s».%s\n\n"
+            "• %d a scatto su clip intere: sono nello Zoom e nella Posizione dell'Inspector della clip "
+            "(Trasforma), li vedi e li ritocchi lì.\n"
+            "• %d animati (morbidi o rapidi) nella composizione Fusion «%s» della clip.\n\n"
+            "Solo il video è cambiato: l'audio è intatto. «Togli gli zoom» rimette tutto com'era." % (
                 done, clips, SET["track"], tl.GetName(),
-                (" %d clip saltate (hanno una loro composizione Fusion)." % skipped) if skipped else "", COMP))
+                (" %d clip saltate (hanno una loro composizione Fusion o non accettano lo zoom)." % skipped)
+                if skipped else "", n_insp, done - n_insp, COMP))
     set_status("Zoom applicati: %d." % done)
     on_refresh()
 
@@ -383,8 +486,16 @@ def on_undo(ev=None):
     tl = current_timeline()
     if not tl:
         return
-    n = 0
-    for it in tl.GetItemListInTrack("video", SET["track"]) or []:
+    n = _remove_all(tl, SET["track"])
+    set_log("Tolti gli zoom da %d clip della traccia V%d." % (n, SET["track"]) if n
+            else "Nessuno zoom ZoomTonic sulla traccia V%d." % SET["track"])
+    on_refresh()
+
+
+def _remove_all(tl, ti):
+    """Toglie gli zoom ZoomTonic della traccia: Inspector (valori originali) e Fusion."""
+    n = _insp_restore(tl, ti)
+    for it in tl.GetItemListInTrack("video", ti) or []:
         try:
             if COMP not in (it.GetFusionCompNameList() or []):
                 continue
@@ -398,9 +509,7 @@ def on_undo(ev=None):
                 n += 1
         except Exception:
             pass
-    set_log("Tolti gli zoom da %d clip della traccia V%d." % (n, SET["track"]) if n
-            else "Nessuno zoom ZoomTonic sulla traccia V%d." % SET["track"])
-    on_refresh()
+    return n
 
 
 def on_shuffle(ev=None):
