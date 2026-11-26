@@ -59,6 +59,10 @@
       <label class="opt"><button class="switch" id="t_speech"><i></i></button><span class="t"><b>Inizio di frase</b><small>quando riprende a parlare</small></span></label>
       <label class="opt"><button class="switch" id="t_emph"><i></i></button><span class="t"><b>Enfasi</b><small>quando la voce si alza</small></span></label>
     </div>
+    <div class="cols3">
+      <label class="opt" style="grid-column: span 2"><button class="switch" id="t_jump"><i></i></button><span class="t"><b>Salti nella stessa ripresa</b><small>due pezzi della stessa clip uno dopo l'altro (es. dopo NoSilence): il secondo entra stretto di scatto e il salto non si vede; in una serie di salti si alterna stretto e largo</small></span></label>
+      <div><label>Zoom a scatto sui salti</label><div class="slider"><input type="range" id="zjump" min="105" max="200" step="1"><output id="zjumpV"></output></div></div>
+    </div>
   </section>
   <section class="card wide">
     <h2><span class="n">3</span> Quanto, dove e come</h2>
@@ -110,7 +114,8 @@ const on = id => $(id).classList.contains("on");
 function collect() {
   clearTimeout(planT); planT = setTimeout(loadPlan, 350);
   return Object.assign(sectionGet(), {track: chosen("track")[0] || 1, voice: chosen("voice")[0] || 0, pace: val2("pace"),
-    t_speech: on("t_speech"), t_emph: on("t_emph"), drift: on("drift"), zmin: +$("zmin").value, zmax: +$("zmax").value,
+    t_speech: on("t_speech"), t_emph: on("t_emph"), t_jump: on("t_jump"), zjump: +$("zjump").value,
+    drift: on("drift"), zmin: +$("zmin").value, zmax: +$("zmax").value,
     styles: [...document.querySelectorAll(".styles .tchip.on")].map(b => b.dataset.s), ax: ax, ay: ay});
 }
 function marker() {                            // mirino e riquadro dello zoom massimo
@@ -146,14 +151,16 @@ function draw() {
   });
   if (P.voice.length) { g.fillStyle = cs.getPropertyValue("--muted");
     for (let x = 0; x < W; x++) { const v = Math.max(0, (P.voice[Math.floor(x / W * P.voice.length)] + 60) / 60); g.fillRect(x, 20 - v * 16, 1, v * 16); } }
-  const top = 26, bot = H - 32, zr = Math.max(1.01, +$("zmax").value / 100);
+  const top = 26, bot = H - 32, zr = Math.max(1.01, +$("zmax").value / 100, ...P.zooms.map(z => z[2]));
   for (const [s, e, z, st] of P.zooms) {          // gli zoom: altezza = quanto zooma
     const hh = (z - 1) / (zr - 1) * (bot - top) * .9 + 6;
     g.fillStyle = SCOL[st]; g.fillRect(X(s), bot - hh, Math.max(2, X(e) - X(s)), hh);
   }
   const by = {};
   for (const z of P.zooms) by[z[3]] = (by[z[3]] || 0) + 1;
+  const nj = P.zooms.filter(z => z[4] === "salto").length;
   $("stats").innerHTML = "<span class='chip'><b>" + P.zooms.length + "</b> zoom</span>" +
+    (nj ? "<span class='chip'>di cui <b>" + nj + "</b> a scatto sui salti della stessa ripresa</span>" : "") +
     Object.entries(by).map(([k, v]) => "<span class='chip'><i style='display:inline-block;width:10px;height:10px;border-radius:3px;background:" +
       SCOL[k] + "'></i> " + SNAME[k] + " <b>" + v + "</b></span>").join("") +
     (P.clips.some(c => c[2]) ? "<span class='chip'>in rosso: clip con una loro composizione Fusion (saltate)</span>" : "");
@@ -172,7 +179,10 @@ function init() {
   const s = ST.set;
   sectionUI(); sectionSync(s);
   seg2("pace", [["molto_calmo", "Molto calmo"], ["calmo", "Calmo"], ["moderato", "Moderato"], ["energico", "Energico"], ["iperattivo", "Iperattivo"]], s.pace);
-  for (const k of ["t_speech", "t_emph", "drift"]) { $(k).classList.toggle("on", !!s[k]); $(k).onclick = e => { e.preventDefault(); $(k).classList.toggle("on"); push(); }; }
+  for (const k of ["t_speech", "t_emph", "t_jump", "drift"]) { $(k).classList.toggle("on", !!s[k]); $(k).onclick = e => { e.preventDefault(); $(k).classList.toggle("on"); push(); }; }
+  $("zjump").value = s.zjump || 120; $("zjumpV").textContent = $("zjump").value + "%";
+  $("zjump").addEventListener("input", () => { $("zjumpV").textContent = $("zjump").value + "%"; draw(); });
+  $("zjump").addEventListener("change", () => push());
   for (const k of ["zmin", "zmax"]) {
     $(k).value = s[k]; $(k + "V").textContent = s[k] + "%";
     $(k).addEventListener("input", () => {

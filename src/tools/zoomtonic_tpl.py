@@ -57,7 +57,7 @@ PACES = {   # probabilita' di zoom su un taglio, pausa minima tra zoom (s), dura
 }
 STYLES = ("smooth", "jump", "snap")
 SET = {"look": load_theme(), "ontop": True, "track": 1, "range": False, "from": "", "to": "",
-       "voice": 0, "pace": "moderato", "t_speech": True, "t_emph": True,
+       "voice": 0, "pace": "moderato", "t_speech": True, "t_emph": True, "t_jump": True, "zjump": 120,
        "zmin": 110, "zmax": 125, "styles": ["smooth", "jump"], "ax": 0.5, "ay": 0.4,
        "drift": False, "seed": 1}
 TITLES = ("ZoomTonic",)
@@ -71,13 +71,13 @@ def _apply_settings(d, save=True):
     for k in ("track", "voice", "seed"):
         if k in d and str(d[k]).isdigit():
             SET[k] = int(d[k])
-    for k in ("range", "t_speech", "t_emph", "drift"):
+    for k in ("range", "t_speech", "t_emph", "t_jump", "drift"):
         if k in d:
             SET[k] = bool(d[k])
     for k in ("from", "to"):
         if isinstance(d.get(k), str):
             SET[k] = d[k].strip()[:20]
-    for k, lo, hi in (("zmin", 101, 300), ("zmax", 101, 300), ("ax", 0, 1), ("ay", 0, 1)):
+    for k, lo, hi in (("zmin", 101, 300), ("zmax", 101, 300), ("zjump", 101, 300), ("ax", 0, 1), ("ay", 0, 1)):
         try:
             if k in d:
                 SET[k] = max(lo, min(hi, float(d[k])))
@@ -169,23 +169,53 @@ def on_analyze(ev=None):
             names = []
         other = bool(names) and COMP not in names            # ha gia' una sua composizione Fusion
         user += other
-        clips.append((it.GetStart(), it.GetEnd(), other))
+        mpi = it.GetMediaPoolItem()
+        try:
+            src = (mpi.GetUniqueId() or mpi.GetClipProperty("File Path")) if mpi else ""
+        except Exception:
+            src = ""
+        try:
+            si, so = int(it.GetSourceStartFrame() or 0), int(it.GetSourceEndFrame() or 0)
+        except Exception:
+            si = so = 0
+        clips.append((it.GetStart(), it.GetEnd(), other, src or "", si, so))
     voice = []
     if SET["voice"] and (SET["t_speech"] or SET["t_emph"]) and FFMPEG:
         voice = track_envelope(tl, SET["voice"], a, b, lambda m: set_status("Ascolto la voce: " + m))
     mid = items[len(items) // 2]
+    n_jc = len(jump_cuts(clips))
     AN.update(ver=AN["ver"] + 1, sig=_sig(), a=a, b=b, fps=fps, clips=clips, voice=voice,
               frame=_grab_frame(mid, fps), user=user)
     make_plan()
     set_log("Lette %d clip della traccia V%d%s. Clicca sull'immagine il punto da tenere al centro dello zoom "
             "(es. il volto), poi «Applica gli zoom».%s" % (
                 len(clips), SET["track"], (" e ascoltata la voce (A%d)" % SET["voice"]) if voice else "",
-                ("\n%d clip hanno già una loro composizione Fusion: le salto per non toccarla." % user) if user else ""))
+                ("\n%d clip hanno già una loro composizione Fusion: le salto per non toccarla." % user) if user else "")
+            + (("\n%d salti nella stessa ripresa (due pezzi della stessa clip uno dopo l'altro): lì lo zoom "
+                "a scatto nasconde il salto." % n_jc) if n_jc else
+               "\nNessun salto nella stessa ripresa: nessuna clip è seguita da un altro pezzo della stessa clip.")
+            if SET["t_jump"] else "")
     set_status("Pronto: guarda l'anteprima, poi «Applica gli zoom».")
 
 
+def jump_cuts(clips):
+    """Indici delle clip che seguono, attaccate, un altro pezzo della STESSA ripresa con un salto
+    in mezzo (es. dopo NoSilence o un taglio a mano nel parlato): il classico jump cut."""
+    out = []
+    for i in range(1, len(clips)):
+        p, c = clips[i - 1], clips[i]
+        if len(c) < 6 or c[2] or not c[3] or c[3] != p[3] or abs(c[0] - p[1]) > 1:
+            continue
+        if abs(c[4] - p[5]) <= 1:
+            continue                     # continua senza salto (taglio "passante"): niente da nascondere
+        out.append(i)
+    return out
+
+
 def make_plan():
-    """Gli zoom: [(da, a, zoom, stile)] in fotogrammi di timeline, dentro una sola clip."""
+    """Gli zoom: [(da, a, zoom, stile, motivo)] in fotogrammi di timeline, dentro una sola clip.
+    Prima i salti nella stessa ripresa (scatto su tutta la clip, alternando stretto/largo lungo
+    una catena di salti), poi gli zoom col ritmo scelto nelle altre clip."""
     if not AN["clips"]:
         PLAN.update(ver=PLAN["ver"] + 1, zooms=[])
         return
@@ -193,7 +223,23 @@ def make_plan():
     p_cut, gap, (h0, h1) = PACES[SET["pace"]]
     rnd = random.Random(SET["seed"])
     F = lambda i: a + int(round(i / ENV_RATE * fps))
-    ev = [(s, "taglio") for s, e, o in AN["clips"] if s >= a]
+    clips = AN["clips"]
+    zooms, held, chain = [], set(), set()
+    if SET["t_jump"]:
+        zj = round(SET["zjump"] / 100.0, 3)
+        for i in jump_cuts(clips):
+            chain.add(clips[i][0])
+            if i - 1 in held:            # il pezzo prima era gia' stretto: si torna larghi
+                continue
+            s, e = max(clips[i][0], a), min(clips[i][1], b)
+            if e - s >= 2:
+                zooms.append((s, e, zj, "jump", "salto"))
+                held.add(i)
+        pre = {clips[i - 1][0] for i in held}    # i pezzi subito prima di uno scatto
+        held = {clips[i][0] for i in held}
+    else:
+        pre = set()
+    ev = [(c[0], "taglio") for c in clips if c[0] >= a and c[0] not in chain]
     if AN["voice"]:
         if SET["t_speech"]:
             thr = auto_threshold(AN["voice"])
@@ -201,33 +247,39 @@ def make_plan():
         if SET["t_emph"]:
             ev += [(F(i), "enfasi") for i in emphasis_points(AN["voice"], 2.0)]
     ev.sort()
-    zooms, free = [], a
+    free = a
     for f, kind in ev:
         if f < free:
             continue
-        clip = next(((s, e) for s, e, o in AN["clips"] if s <= f < e and not o), None)
-        if not clip:
+        clip = next(((c[0], c[1]) for c in clips if c[0] <= f < c[1] and not c[2]), None)
+        if not clip or clip[0] in held:   # clip gia' stretta per un salto
             continue
         p = p_cut if kind == "taglio" else (0.6 + p_cut) / 2
         if rnd.random() > p:
             continue
         hold = int(rnd.uniform(h0, h1) * fps)
         end = min(f + hold, clip[1], b)
+        if clip[0] in pre:               # finisce larga prima del salto: lo scatto si vede pieno
+            end = min(end, clip[1] - max(3, int(0.3 * fps)))
         if end - f < int(0.5 * fps):
             continue
         z = rnd.uniform(SET["zmin"], SET["zmax"]) / 100.0
         zooms.append((f, end, round(z, 3), rnd.choice(SET["styles"]), kind))
         free = end + int(gap * fps)
+    zooms.sort()
     PLAN.update(ver=PLAN["ver"] + 1, zooms=zooms)
 
 
 def _keys(z0, z1, z, style, fps, dur):
-    """Fotogrammi chiave della dimensione (relativi alla clip) per uno zoom [z0, z1)."""
+    """Fotogrammi chiave della dimensione (relativi alla clip) per uno zoom [z0, z1).
+    Negli scatti ogni salto ha una chiave uguale accanto da entrambe le parti: la curva di Fusion
+    resta piatta prima e dopo (senza, le maniglie automatiche fanno una rampa lenta)."""
     if style == "jump":                          # scatto: dentro e fuori di colpo
-        k = [(z0 - 1, 1.0), (z0, z), (z1 - 1, z), (z1, 1.0)]
+        k = [(z0 - 2, 1.0), (z0 - 1, 1.0), (z0, z), (z0 + 1, z),
+             (z1 - 2, z), (z1 - 1, z), (z1, 1.0), (z1 + 1, 1.0)]
     elif style == "snap":                        # rapido: entra veloce, esce di colpo
         r = max(2, min(int(0.25 * fps), (z1 - z0) // 3))
-        k = [(z0, 1.0), (z0 + r, z), (z1 - 1, z), (z1, 1.0)]
+        k = [(z0, 1.0), (z0 + r, z), (z0 + r + 1, z), (z1 - 2, z), (z1 - 1, z), (z1, 1.0), (z1 + 1, 1.0)]
     else:                                        # morbido: entra ed esce dolce
         r = max(3, min(int(0.7 * fps), (z1 - z0) // 3))
         k = [(z0, 1.0), (z0 + r, z), (z1 - r, z), (z1, 1.0)]
